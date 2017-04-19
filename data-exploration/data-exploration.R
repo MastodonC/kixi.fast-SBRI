@@ -25,7 +25,8 @@ pharmacy.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encr
                  mutate(
                    Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
                    Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
-                   age.num = as.integer(Age)
+                   age.num = as.integer(Age),
+                   Sex = as.factor(Sex)
                  )
 
 
@@ -33,8 +34,9 @@ pharmacy.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encr
 # group by hospital stay (patient, same day admitted, same day discharged)
 by_stay <- group_by(pharmacy.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Date.of.Discharge)
 pharmacy.hospital.stays <- summarize(by_stay,
-                            count = n()
-                            )
+                              count = n()
+                            ) %>%
+                            mutate(length.of.stay = as.integer(Date.of.Discharge - Date.of.Admission))
 
 # genders check
 gender.counts <- group_by(pharmacy.hospital.stays, Sex) %>% summarize(count = n())
@@ -49,4 +51,6 @@ pharmacy.arrivals.per.day <- pharmacy.hospital.stays %>%
 ggplot(data = pharmacy.arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 # let's see if a histogram with varying bin size will give us more information (week? month?)
 ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$Date.of.Admission)) + geom_histogram(binwidth=7)
+
+# length of stay
 
