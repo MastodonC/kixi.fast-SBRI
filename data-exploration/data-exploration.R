@@ -17,7 +17,7 @@ arrivals.per.day <- emergency.data %>%
                     group_by(Arrival.Date.formatted) %>%
                     arrange(Arrival.Date.formatted) %>%
                     summarize(Count = n())
-ggplot(data = arrivals.per.day, aes(x = Arrival.Date.formatted, y = Count)) + geom_point() + ggtitle("Arrivals per day")
+ggplot(data = arrivals.per.day, aes(x = Arrival.Date.formatted, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 
 ## PAS data
 # 17-FEB-2015 15:22
@@ -36,7 +36,7 @@ pharmacy.hospital.stays <- summarize(by_stay,
                             count = n()
                             )
 
-# genders
+# genders check
 gender.counts <- group_by(pharmacy.hospital.stays, Sex) %>% summarize(count = n())
 # check numbers per age group
 ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$age.num)) + geom_histogram(binwidth=5)
@@ -46,4 +46,7 @@ pharmacy.arrivals.per.day <- pharmacy.hospital.stays %>%
                     group_by(Date.of.Admission) %>%
                     arrange(Date.of.Admission) %>%
                     summarize(Count = n())
-ggplot(data = pharmacy.arrivals.per.day, aes(x = Arrival.Date.formatted, y = Count)) + geom_point() + ggtitle("Arrivals per day")
+ggplot(data = pharmacy.arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
+# let's see if a histogram with varying bin size will give us more information (week? month?)
+ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$Date.of.Admission)) + geom_histogram(binwidth=7)
+
