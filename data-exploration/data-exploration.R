@@ -26,7 +26,8 @@ pharmacy.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encr
                    Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
                    Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
                    age.num = as.integer(Age),
-                   Sex = as.factor(Sex)
+                   Sex = as.factor(Sex),
+                   Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
                  )
 
 
@@ -68,12 +69,15 @@ ggplot(data=pharmacy.arrivals.per.month, aes(x = month, y = count)) + geom_point
 # histogram
 ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$length.of.stay)) + geom_histogram()
 # scatterplot age - sex - not conclusive
-pairs(~length.of.stay+age.num+Sex,data=pharmacy.hospital.stays, 
+pairs(~length.of.stay+age.num+Sex+Method.of.Admission.Category,data=pharmacy.hospital.stays, 
       main="Simple Scatterplot Matrix")
 
 # method of admission
 pharmacy.stays.per.method.of.admission <- group_by(pharmacy.hospital.stays, Method.of.Admission.Category) %>%
-                                          summarize(count = n())
+                                          summarize(count = n(),
+                                                    mean.length.of.stay = mean(length.of.stay,na.rm = TRUE),
+                                                    sd.length.of.stay = sd(length.of.stay, na.rm = TRUE)
+                                                    )
 
 # anomalous data
 # 130 rows with NA lenght of stay
