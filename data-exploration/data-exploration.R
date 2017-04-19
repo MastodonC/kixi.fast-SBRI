@@ -38,6 +38,9 @@ pharmacy.hospital.stays <- summarize(by_stay,
                             ) %>%
                             mutate(length.of.stay = as.integer(Date.of.Discharge - Date.of.Admission))
 
+# summary stats
+summary(pharmacy.hospital.stays)
+
 # genders check
 gender.counts <- group_by(pharmacy.hospital.stays, Sex) %>% summarize(count = n())
 # check numbers per age group
@@ -50,7 +53,35 @@ pharmacy.arrivals.per.day <- pharmacy.hospital.stays %>%
                     summarize(Count = n())
 ggplot(data = pharmacy.arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 # let's see if a histogram with varying bin size will give us more information (week? month?)
-ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$Date.of.Admission)) + geom_histogram(binwidth=7)
+ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$Date.of.Admission)) + geom_histogram(binwidth=30)
+
+pharmacy.arrivals.per.month <- pharmacy.hospital.stays %>%
+  mutate(
+    month = months(Date.of.Admission),
+    year = format(Date.of.Admission,"%Y")
+  ) %>%
+  group_by(month,year) %>%
+  summarize(count = n())
+ggplot(data=pharmacy.arrivals.per.month, aes(x = month, y = count)) + geom_point()
 
 # length of stay
+# histogram
+ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$length.of.stay)) + geom_histogram()
+# scatterplot age - sex - not conclusive
+pairs(~length.of.stay+age.num+Sex,data=pharmacy.hospital.stays, 
+      main="Simple Scatterplot Matrix")
 
+# anomalous data
+# 130 rows with NA lenght of stay
+no.length.of.stay <- filter(pharmacy.hospital.stays, is.na(length.of.stay))
+# = patients have not left
+# no patient id!
+no.id <- pharmacy.hospital.stays[is.na(pharmacy.data$H.C.Encrypted),]
+
+# 1 patient, 93 PAS records for 1 stay
+patient1 <- pharmacy.hospital.stays[pharmacy.hospital.stays$count == 93.0,]
+patient1.stay <- pharmacy.data[pharmacy.data$H.C.Encrypted == patient1$H.C.Encrypted,]
+
+# patient stay 244 days
+patient2 <- filter(pharmacy.hospital.stays, length.of.stay == 244.0)
+patient2.stay <- filter(pharmacy.data, H.C.Encrypted == patient2$H.C.Encrypted)
