@@ -32,7 +32,7 @@ pharmacy.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encr
 
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(pharmacy.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Date.of.Discharge)
+by_stay <- group_by(pharmacy.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Date.of.Discharge,Method.of.Admission.Category)
 pharmacy.hospital.stays <- summarize(by_stay,
                               count = n()
                             ) %>%
@@ -70,6 +70,10 @@ ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$length.of.stay)
 # scatterplot age - sex - not conclusive
 pairs(~length.of.stay+age.num+Sex,data=pharmacy.hospital.stays, 
       main="Simple Scatterplot Matrix")
+
+# method of admission
+pharmacy.stays.per.method.of.admission <- group_by(pharmacy.hospital.stays, Method.of.Admission.Category) %>%
+                                          summarize(count = n())
 
 # anomalous data
 # 130 rows with NA lenght of stay
