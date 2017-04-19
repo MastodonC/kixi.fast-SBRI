@@ -7,17 +7,23 @@ emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", str
 # remove nils
 emergency.data <- emergency.data %>%
                   mutate(
-                    Arrival.Date.formatted = as.Date(Arrival.Date,format="%d/%m/%Y"),
+                    Date.of.Admission = as.Date(Arrival.Date,format="%d/%m/%Y"),
                     Left.DateTime = as.Date(Left.Dept.Datetime,format="%d/%m/%Y %H:%M:%S")
                   )
+
+emergency.data.duplicate.admissions <- group_by(emergency.data, H.C.Encrypted, Date.of.Admission) %>%
+                                       summarize(count = n()) %>%
+                                       filter(count > 1)
+duplicate.id.1 <- emergency.data.duplicate.admissions[1,]$H.C.Encrypted
+duplicate1 <- filter(emergency.data, H.C.Encrypted == duplicate.id.1)
 
 
 #plotting arrivals per day
 arrivals.per.day <- emergency.data %>%
-                    group_by(Arrival.Date.formatted) %>%
-                    arrange(Arrival.Date.formatted) %>%
+                    group_by(Date.of.Admission) %>%
+                    arrange(Date.of.Admission) %>%
                     summarize(Count = n())
-ggplot(data = arrivals.per.day, aes(x = Arrival.Date.formatted, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
+ggplot(data = arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 
 ## PAS data
 # 17-FEB-2015 15:22
@@ -25,6 +31,7 @@ pharmacy.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encr
                  mutate(
                    Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
                    Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
+                   #Time.of.Admission = format(as.POSIXct(Date.of.Admission.With.Time), "%H:%M"),
                    age.num = as.integer(Age),
                    Sex = as.factor(Sex),
                    Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
@@ -78,6 +85,15 @@ pharmacy.stays.per.method.of.admission <- group_by(pharmacy.hospital.stays, Meth
                                                     mean.length.of.stay = mean(length.of.stay,na.rm = TRUE),
                                                     sd.length.of.stay = sd(length.of.stay, na.rm = TRUE)
                                                     )
+
+
+# merging pharmacy data with emergency data
+pharmacy.hospital.without.ids <- filter(pharmacy.hospital.stays, is.na(H.C.Encrypted))
+pharmacy.hospital.with.ids <- filter(pharmacy.hospital.stays, is.na(H.C.Encrypted) == F)
+#pharmacy.merged <- merge(x=pharmacy.hospital.with.ids,y=emergency.data,by=c("H.C.Encrypted","Date.of.Admission"),all.x = TRUE)
+pharmacy.merged.2 <- left_join(pharmacy.hospital.with.ids, emergency.data)
+
+
 
 # anomalous data
 # 130 rows with NA lenght of stay
