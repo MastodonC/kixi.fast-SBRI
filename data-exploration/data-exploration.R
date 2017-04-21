@@ -3,19 +3,13 @@ require(reshape2)
 require(ggplot2)
 
 # Emergency data
-emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", stringsAsFactors = F,na.strings=c("","NA"))
-# remove nils
-emergency.data <- emergency.data %>%
+emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", stringsAsFactors = F,na.strings=c("","NA")) %>%
                   mutate(
                     Date.of.Admission = as.Date(Arrival.Date,format="%d/%m/%Y"),
                     Left.DateTime = as.Date(Left.Dept.Datetime,format="%d/%m/%Y %H:%M:%S")
-                  )
+                  ) %>%
+                  rename(Time.of.Admission = Arrival.Time)
 
-emergency.data.duplicate.admissions <- group_by(emergency.data, H.C.Encrypted, Date.of.Admission) %>%
-                                       summarize(count = n()) %>%
-                                       filter(count > 1)
-duplicate.id.1 <- emergency.data.duplicate.admissions[1,]$H.C.Encrypted
-duplicate1 <- filter(emergency.data, H.C.Encrypted == duplicate.id.1)
 
 
 #plotting arrivals per day
@@ -31,16 +25,15 @@ pharmacy.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encr
                  mutate(
                    Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
                    Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
-                   #Time.of.Admission = format(as.POSIXct(Date.of.Admission.With.Time), "%H:%M"),
+                   Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
                    age.num = as.integer(Age),
                    Sex = as.factor(Sex),
                    Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
                  )
-
-
+# they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(pharmacy.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Date.of.Discharge,Method.of.Admission.Category)
+by_stay <- group_by(pharmacy.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,Date.of.Discharge,Method.of.Admission.Category)
 pharmacy.hospital.stays <- summarize(by_stay,
                               count = n()
                             ) %>%
@@ -62,6 +55,8 @@ pharmacy.arrivals.per.day <- pharmacy.hospital.stays %>%
 ggplot(data = pharmacy.arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 # let's see if a histogram with varying bin size will give us more information (week? month?)
 ggplot(data=pharmacy.hospital.stays, aes(pharmacy.hospital.stays$Date.of.Admission)) + geom_histogram(binwidth=30)
+# not conclusive
+# ask Sunny about detecting seasonality (Fourrier transform, smoothing ...)
 
 pharmacy.arrivals.per.month <- pharmacy.hospital.stays %>%
   mutate(
@@ -88,19 +83,31 @@ pharmacy.stays.per.method.of.admission <- group_by(pharmacy.hospital.stays, Meth
 
 
 # merging pharmacy data with emergency data
+
+# we can have more than one admission per day!
+emergency.data.duplicate.admissions <- group_by(emergency.data, H.C.Encrypted, Date.of.Admission) %>%
+  summarize(count = n()) %>%
+  filter(count > 1)
+duplicate.id.1 <- emergency.data.duplicate.admissions[1,]$H.C.Encrypted
+duplicate1 <- filter(emergency.data, H.C.Encrypted == duplicate.id.1)
+# do corresponding stays have same time stamp?  should we use hour?
+duplicate.pharmacy <- filter(pharmacy.data, H.C.Encrypted == duplicate.id.1)
+
 pharmacy.hospital.without.ids <- filter(pharmacy.hospital.stays, is.na(H.C.Encrypted))
 pharmacy.hospital.with.ids <- filter(pharmacy.hospital.stays, is.na(H.C.Encrypted) == F)
-#pharmacy.merged <- merge(x=pharmacy.hospital.with.ids,y=emergency.data,by=c("H.C.Encrypted","Date.of.Admission"),all.x = TRUE)
-pharmacy.merged.2 <- left_join(pharmacy.hospital.with.ids, emergency.data)
-
+pharmacy.merged <- left_join(pharmacy.hospital.with.ids, emergency.data)
+# TODO:
+# possibly output per hour to have profiles, also weekdays and weekends
+# readmissions (how many times does patient get re-admitted for new stay)
 
 
 # anomalous data
 # 130 rows with NA lenght of stay
 no.length.of.stay <- filter(pharmacy.hospital.stays, is.na(length.of.stay))
 # = patients have not left
-# no patient id!
-no.id <- pharmacy.hospital.stays[is.na(pharmacy.data$H.C.Encrypted),]
+# no patient id! 369 in original data, 229 in hospital stays
+no.id.pharmacy.data <- filter(pharmacy.data, is.na(H.C.Encrypted))
+no.id.stays <- pharmacy.hospital.stays[is.na(pharmacy.data$H.C.Encrypted),]
 
 # 1 patient, 93 PAS records for 1 stay
 patient1 <- pharmacy.hospital.stays[pharmacy.hospital.stays$count == 93.0,]
