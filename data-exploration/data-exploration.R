@@ -1,6 +1,7 @@
 require(dplyr)
 require(reshape2)
 require(ggplot2)
+require(cowplot)
 
 # Emergency data
 emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", stringsAsFactors = F,na.strings=c("","NA")) %>%
@@ -33,12 +34,25 @@ patient.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encry
 # group by hospital stay (patient, same day admitted, same day discharged)
 by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge)
 patient.hospital.stays <- summarize(by_stay,
-                              count = n()
+                              count = n(),
+                              distinct.wards = n_distinct(Ward.Name)
                             ) %>%
                             mutate(length.of.stay = as.integer(Date.of.Discharge - Date.of.Admission))
 
 # summary stats
 summary(patient.hospital.stays)
+
+# readmissions
+patients.total <- group_by(patient.data,H.C.Encrypted) %>%
+  summarize(records=n())
+patient.recurrent <- group_by(patient.hospital.stays, H.C.Encrypted) %>%
+                     summarize(stays.count = n()) %>%
+                     filter(stays.count > 1)
+patient.not.recurrent <- group_by(patient.hospital.stays, H.C.Encrypted) %>%
+  summarize(stays.count = n()) %>%
+  filter(stays.count <= 1)
+# 28% of patients are readmitted
+# TODO: check how many times
 
 # genders check
 gender.counts <- group_by(patient.hospital.stays, Sex) %>% summarize(count = n())
@@ -96,9 +110,20 @@ duplicate.patient <- filter(patient.data, H.C.Encrypted == duplicate.id.1)
 patient.hospital.without.ids <- filter(patient.hospital.stays, is.na(H.C.Encrypted))
 patient.hospital.with.ids <- filter(patient.hospital.stays, is.na(H.C.Encrypted) == F)
 patient.merged <- left_join(patient.hospital.with.ids, emergency.data)
+
+# how many wards does a person go through in one visit, and which?
+wards <- left_join(patient.data,patient.hospital.stays) %>% select(H.C.Encrypted, Ward.Name,count, distinct.wards, length.of.stay)
+
+plot1 <- ggplot(data=wards, aes(wards$count)) + geom_histogram(binwidth=1)
+plot2 <- ggplot(data=wards, aes(wards$distinct.wards)) + geom_histogram()
+plot_grid(plot1, plot2, align='h', labels=c('count', 'distinct count'))
+# patient data ordered by chronology of visit (Ward.Episode.Number)
+patient.data.ordered <- arrange(patient.data,H.C.Encrypted,Date.of.Admission,Time.of.Admission,Ward.Episode.Number) %>%
+  select(H.C.Encrypted,Ward.Name,Specialty.Description.on.Ward.Entry, Ward.Episode.Number,Mode.of.Exit.from.Ward)
+
 # TODO:
 # possibly output per hour to have profiles, also weekdays and weekends
-# readmissions (how many times does patient get re-admitted for new stay)
+
 
 
 # anomalous data
