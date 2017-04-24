@@ -7,7 +7,9 @@ require(cowplot)
 emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", stringsAsFactors = F,na.strings=c("","NA")) %>%
                   mutate(
                     Date.of.Admission = as.Date(Arrival.Date,format="%d/%m/%Y"),
-                    Left.DateTime = as.Date(Left.Dept.Datetime,format="%d/%m/%Y %H:%M:%S")
+                    Left.DateTime = as.Date(Left.Dept.Datetime,format="%d/%m/%Y %H:%M:%S"),
+                    Week.of.Admission = as.integer(format(Date.of.Admission,format="%W")) + 1,
+                    Year.of.Admission = format(Date.of.Admission, "%Y")
                   ) %>%
                   rename(Time.of.Admission = Arrival.Time)
 
@@ -17,6 +19,11 @@ arrivals.per.day <- emergency.data %>%
                     arrange(Date.of.Admission) %>%
                     summarize(Count = n())
 ggplot(data = arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
+
+arrivals.per.week <- group_by(emergency.data, Year.of.Admission,Week.of.Admission) %>%
+                     arrange(Year.of.Admission, Week.of.Admission) %>%
+                     summarize(count = n())
+plot.ts(arrivals.per.week$count)
 
 ## PAS data
 # 17-FEB-2015 15:22
