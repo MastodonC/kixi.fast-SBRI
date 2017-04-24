@@ -42,6 +42,32 @@ arrivals.per.week <- group_by(emergency.data, Year.of.Admission,Week.of.Admissio
                      summarize(count = n())
 plot.ts(arrivals.per.week$count)
 
+# Arrivals pr weekday
+emergency.data$Arrival.weekdays <- weekdays(emergency.data$Date.of.Admission, abbreviate = FALSE)
+
+arrivals.per.weekday <- emergency.data %>%
+                        group_by(Arrival.weekdays) %>%
+                        summarize(Count = n())
+
+ggplot(data=arrivals.per.weekday, aes(x=Arrival.weekdays, y=Count)) + geom_bar(stat="identity")
+
+# Arrivals per month
+emergency.data$Arrival.months <- months(emergency.data$Date.of.Admission, abbreviate = FALSE)
+
+arrivals.per.month <- emergency.data %>%
+                      group_by(Arrival.months) %>%
+                      summarize(Count = n())
+
+ggplot(data=arrivals.per.month, aes(x=Arrival.months, y=Count)) + geom_bar(stat="identity")
+
+# Arrivals per quarter
+emergency.data$Arrival.quarters <- quarters(emergency.data$Date.of.Admission, abbreviate = FALSE)
+
+arrivals.per.quarter <- emergency.data %>%
+                        group_by(Arrival.quarters) %>%
+                        summarize(Count = n())
+
+ggplot(data=arrivals.per.quarter, aes(x=Arrival.quarters, y=Count)) + geom_bar(stat="identity")
 
 # they all have coherent dates
 
