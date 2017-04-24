@@ -3,8 +3,9 @@ require(reshape2)
 require(ggplot2)
 require(cowplot)
 
+## READING DATA
 # Emergency data
-emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", stringsAsFactors = F,na.strings=c("","NA")) %>%
+emergency.data <- read.csv(emergency.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
                   mutate(
                     Date.of.Admission = as.Date(Arrival.Date,format="%d/%m/%Y"),
                     Left.DateTime = as.Date(Left.Dept.Datetime,format="%d/%m/%Y %H:%M:%S"),
@@ -12,6 +13,19 @@ emergency.data <- read.csv("~/SBRI/20170228_SBRIB_AAH_ED_Dataset_Encry.csv", str
                     Year.of.Admission = format(Date.of.Admission, "%Y")
                   ) %>%
                   rename(Time.of.Admission = Arrival.Time)
+
+## PAS data
+patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
+  mutate(
+    Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
+    Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
+    Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
+    age.num = as.integer(Age),
+    Sex = as.factor(Sex),
+    Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
+  )
+
+## Data Exploration
 
 #plotting arrivals per day
 arrivals.per.day <- emergency.data %>%
@@ -25,17 +39,7 @@ arrivals.per.week <- group_by(emergency.data, Year.of.Admission,Week.of.Admissio
                      summarize(count = n())
 plot.ts(arrivals.per.week$count)
 
-## PAS data
-# 17-FEB-2015 15:22
-patient.data <- read.csv("~/SBRI/20170228_Pharmacy_SBRIB_AntrimWardDataset_Encry.csv", stringsAsFactors = F,na.strings=c("","NA")) %>%
-                 mutate(
-                   Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
-                   Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
-                   Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
-                   age.num = as.integer(Age),
-                   Sex = as.factor(Sex),
-                   Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
-                 )
+
 # they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
