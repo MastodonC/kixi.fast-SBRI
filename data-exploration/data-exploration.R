@@ -42,14 +42,22 @@ arrivals.per.week <- group_by(emergency.data, Year.of.Admission,Week.of.Admissio
                      summarize(count = n())
 plot.ts(arrivals.per.week$count)
 
-# Arrivals pr weekday
+# Arrivals per weekday
 emergency.data$Arrival.weekdays <- weekdays(emergency.data$Date.of.Admission, abbreviate = FALSE)
 
 arrivals.per.weekday <- emergency.data %>%
                         group_by(Arrival.weekdays) %>%
                         summarize(Count = n())
 
+arrivals.per.weekdays.and.triage <- emergency.data %>%
+                                    group_by(Arrival.weekdays, Triage.Category.Description...Last) %>%
+                                    summarize(Count = n())
+  
 ggplot(data=arrivals.per.weekday, aes(x=Arrival.weekdays, y=Count)) + geom_bar(stat="identity")
+
+ggplot(data=arrivals.per.weekdays.and.triage, aes(x=Arrival.weekdays, y=Count)) 
++ geom_bar(aes(fill=Triage.Category.Description...Last), stat="identity") 
+
 
 # Arrivals per month
 emergency.data$Arrival.months <- months(emergency.data$Date.of.Admission, abbreviate = FALSE)
@@ -68,6 +76,42 @@ arrivals.per.quarter <- emergency.data %>%
                         summarize(Count = n())
 
 ggplot(data=arrivals.per.quarter, aes(x=Arrival.quarters, y=Count)) + geom_bar(stat="identity")
+
+
+# Departures pr weekday
+#emergency.data$Departure.weekdays <- if(typeof(emergency.data$Left.DateTime) == "Date"){
+  #weekdays(emergency.data$Left.DateTime, abbreviate = FALSE)} else {
+  #"NA"}
+emergency.data$Departure.weekdays <- weekdays(emergency.data$Left.DateTime, abbreviate = FALSE)
+
+departures.per.weekday <- emergency.data %>%
+                          group_by(Departure.weekdays) %>%
+                          summarize(Count = n()) %>%
+                          filter(Departure.weekdays != "NA")
+
+ggplot(data=departures.per.weekday, aes(x=Departure.weekdays, y=Count)) + geom_bar(stat="identity")
+
+# Departures per month
+emergency.data$Departure.months <- months(emergency.data$Left.DateTime, abbreviate = FALSE)
+
+departures.per.month <- emergency.data %>%
+                        group_by(Departure.months) %>%
+                        summarize(Count = n()) %>%
+                        filter(Departure.months != "NA")
+
+ggplot(data=departures.per.month, aes(x=Departure.months, y=Count)) + geom_bar(stat="identity")
+
+# Departures per quarter
+emergency.data$Departure.quarters <- quarters(emergency.data$Left.DateTime, abbreviate = FALSE)
+
+departures.per.quarter <- emergency.data %>%
+                          group_by(Departure.quarters) %>%
+                          summarize(Count = n()) %>%
+                          filter(Departure.quarters != "NA")
+
+ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_bar(stat="identity")
+
+
 
 # they all have coherent dates
 
