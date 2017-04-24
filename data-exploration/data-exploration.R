@@ -107,7 +107,7 @@ emergency.data$Departure.quarters <- quarters(emergency.data$Left.DateTime, abbr
 departures.per.quarter <- emergency.data %>%
                           group_by(Departure.quarters) %>%
                           summarize(Count = n()) %>%
-                          filter(Departure.quarters != "NA")
+                          filter(Departure.quarters != "QNA")
 
 ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_bar(stat="identity")
 
