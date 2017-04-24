@@ -1,5 +1,7 @@
 data-exploration/.RData
 data-exploration/.Rhistory
+data-exploration/paths.R
+data-exploration/*.Rproj
 *.zip
 *.7z
 *.csv

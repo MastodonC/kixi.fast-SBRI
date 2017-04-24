@@ -3,6 +3,9 @@ require(reshape2)
 require(ggplot2)
 require(cowplot)
 
+# for our own data source paths
+source("paths.R")
+
 ## READING DATA
 # Emergency data
 emergency.data <- read.csv(emergency.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
