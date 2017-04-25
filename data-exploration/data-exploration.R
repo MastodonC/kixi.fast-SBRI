@@ -51,16 +51,18 @@ plot.ts(arrivals.per.week$count)
 
 # Arrivals per weekday
 emergency.data$Arrival.weekdays <- weekdays(emergency.data$Date.of.Admission, abbreviate = FALSE)
-
+weekday.list <- c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")
 arrivals.per.weekday <- emergency.data %>%
                         group_by(Arrival.weekdays) %>%
-                        summarize(Count = n())
+                        summarize(Count = n()) %>%
+                        mutate(weekday.ordered = factor(Arrival.weekdays, levels = weekday.list)) %>%
+                        arrange(weekday.ordered)
 
 arrivals.per.weekdays.and.triage <- emergency.data %>%
                                     group_by(Arrival.weekdays, Triage.Category.Description...Last) %>%
                                     summarize(Count = n())
 
-ggplot(data=arrivals.per.weekday, aes(x=Arrival.weekdays, y=Count)) + geom_bar(stat="identity")
+ggplot(data=arrivals.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
 
 ggplot(data=arrivals.per.weekdays.and.triage, aes(x=Arrival.weekdays, y=Count))
 + geom_bar(aes(fill=Triage.Category.Description...Last), stat="identity")
@@ -241,6 +243,7 @@ ggplot(data=all.admissions, aes(Date.of.Admission)) +
 # plot per hour
 ed.per.hour <- group_by(emergency.data, Hour.of.Admission) %>% summarize(count=n())
 ggplot(data=emergency.data, aes(emergency.data$Hour.of.Admission)) + geom_histogram(binwidth=1)
+ggplot(data=ed.per.hour, aes(x=Hour.of.Admission, y=count)) + geom_bar(stat="identity")
 
 # how many wards does a person go through in one visit, and which?
 wards <- left_join(patient.data,patient.hospital.stays) %>% select(H.C.Encrypted, Ward.Name,count, distinct.wards, length.of.stay)
