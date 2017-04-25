@@ -61,13 +61,13 @@ arrivals.per.weekday <- emergency.data %>%
 
 arrivals.per.weekdays.and.triage <- emergency.data %>%
                                     group_by(Arrival.weekdays, Triage.Category.Description...Last) %>%
-                                    summarize(Count = n())
+                                    summarize(Count = n()) %>%
+                                    mutate(weekday.ordered = factor(Arrival.weekdays, levels = weekday.list)) %>%
+                                    arrange(weekday.ordered)
 
 ggplot(data=arrivals.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
 
-ggplot(data=arrivals.per.weekdays.and.triage, aes(x=Arrival.weekdays, y=Count))
-+ geom_bar(aes(fill=Triage.Category.Description...Last), stat="identity")
-
+ggplot(arrivals.per.weekdays.and.triage, aes(x=weekday.ordered, y=Count)) + geom_col(aes(fill=Triage.Category.Description...Last))
 
 # Arrivals per month
 emergency.data$Arrival.months <- months(emergency.data$Date.of.Admission, abbreviate = FALSE)
@@ -76,7 +76,13 @@ arrivals.per.month <- emergency.data %>%
                       group_by(Arrival.months) %>%
                       summarize(Count = n())
 
+arrivals.per.month.per.triage <- emergency.data %>%
+                                 group_by(Arrival.months, Triage.Category.Description...Last) %>%
+                                 summarize(Count = n())
+
 ggplot(data=arrivals.per.month, aes(x=Arrival.months, y=Count)) + geom_bar(stat="identity")
+
+ggplot(arrivals.per.month.per.triage, aes(x=Arrival.months, y=Count)) + geom_col(aes(fill=Triage.Category.Description...Last))
 
 # try to find timeseries arrival per month
 arrivals.per.month <- mutate(emergency.data, month.year = paste(Year.of.Admission, Month.of.Admission, sep="-")) %>%
@@ -97,8 +103,13 @@ arrivals.per.quarter <- emergency.data %>%
                         group_by(Arrival.quarters) %>%
                         summarize(Count = n())
 
+arrivals.per.quarter.per.triage <- emergency.data %>%
+                                   group_by(Arrival.quarters, Triage.Category.Description...Last) %>%
+                                   summarize(Count = n())
+
 ggplot(data=arrivals.per.quarter, aes(x=Arrival.quarters, y=Count)) + geom_bar(stat="identity")
 
+ggplot(arrivals.per.quarter.per.triage, aes(x=Arrival.quarters, y=Count)) + geom_col(aes(fill=Triage.Category.Description...Last))
 
 # Departures pr weekday
 #emergency.data$Departure.weekdays <- if(typeof(emergency.data$Left.DateTime) == "Date"){
