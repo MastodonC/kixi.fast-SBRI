@@ -240,6 +240,8 @@ ggplot(data=all.admissions, aes(Date.of.Admission)) +
   geom_line(aes(y=other.count, colour="other")) +
   geom_line(aes(y=elective.count, colour="elective"))
 
+elective.admissions.oddity <- filter(all.admissions, elective.count > 30)
+
 # plot per hour
 ed.per.hour <- group_by(emergency.data, Hour.of.Admission) %>% summarize(count=n())
 ggplot(data=emergency.data, aes(emergency.data$Hour.of.Admission)) + geom_histogram(binwidth=1)
