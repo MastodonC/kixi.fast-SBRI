@@ -4,6 +4,7 @@ require(ggplot2)
 require(cowplot)
 require(tidyr)
 require(lubridate)
+require(zoo)
 
 # for our own data source paths
 source("paths.R")
@@ -145,6 +146,7 @@ patient.hospital.stays <- summarize(by_stay,
 # summary stats
 summary(patient.hospital.stays)
 
+
 # readmissions
 patients.total <- group_by(patient.data,H.C.Encrypted) %>%
   summarize(records=n())
@@ -166,12 +168,23 @@ ggplot(data=patient.hospital.stays, aes(patient.hospital.stays$age.num, fill=Sex
 patient.arrivals.per.day <- patient.hospital.stays %>%
                     group_by(Date.of.Admission) %>%
                     arrange(Date.of.Admission) %>%
-                    summarize(Count = n())
+                    summarize(arrival.count = n()) %>%
+                    mutate(Date = Date.of.Admission)
 ggplot(data = patient.arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 # let's see if a histogram with varying bin size will give us more information (week? month?)
 ggplot(data=patient.hospital.stays, aes(patient.hospital.stays$Date.of.Admission)) + geom_histogram(binwidth=30)
 # not conclusive
-# ask Sunny about detecting seasonality (Fourrier transform, smoothing ...)
+
+# how many patients in hospital at any one time, using patient.data
+# rolling count, using arrivals and departures - arrivals on day: patient.arrivals.per.day
+# departures per day
+patient.departures.per.day <- group_by(patient.hospital.stays, Date.of.Discharge) %>%
+                              arrange(Date.of.Discharge) %>%
+                              summarize(departure.count = n()) %>%
+                              mutate(Date = Date.of.Discharge)
+# merge arrivals and departures
+patient.arrivals.and.departures <- full_join(patient.arrivals.per.day, patient.departures.per.day)
+
 
 patient.arrivals.per.month <- patient.hospital.stays %>%
   mutate(
@@ -239,6 +252,10 @@ ggplot(data=all.admissions, aes(Date.of.Admission)) +
   geom_line(aes(y=mat.count, colour="maternity")) +
   geom_line(aes(y=other.count, colour="other")) +
   geom_line(aes(y=elective.count, colour="elective"))
+plot.ts(all.admissions$em.count)
+plot.ts(diff(all.admissions$em.count))
+
+
 
 elective.admissions.oddity <- filter(all.admissions, elective.count > 30)
 
