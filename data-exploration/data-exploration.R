@@ -18,6 +18,7 @@ emergency.data <- read.csv(emergency.data.path, stringsAsFactors = F,na.strings=
                     Week.of.Arrival = as.integer(format(Date.of.Arrival,format="%W")) + 1,
                     Month.of.Arrival = format(Date.of.Arrival, "%m"),
                     Year.of.Arrival = format(Date.of.Arrival, "%Y"),
+                    Year.Week = paste(Year.of.Arrival, sprintf("%02d", Week.of.Arrival), sep="-"),
                     Hour.of.Arrival = hour(hm(Arrival.Time)),
                     Date.Decision.of.Admission = as.Date(DADT.DateTime, format="%d/%m/%Y %H:%M:%S"),
                     Time.Decision.of.Admission = strftime(as.POSIXct(DADT.DateTime,format="%d/%m/%Y %H:%M:%S"), format="%H:%M"),
@@ -29,6 +30,11 @@ emergency.data <- read.csv(emergency.data.path, stringsAsFactors = F,na.strings=
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
+    Week.of.Admission = as.integer(format(Date.of.Admission,format="%W")) + 1,
+    Year.of.Admission = format(Date.of.Admission, "%Y"),
+    Year.Week = paste(Year.of.Admission, sprintf("%02d", Week.of.Admission), sep="-"),
+    Day.Admission = format(Date.of.Admission, "%d"),
+    Month.Admission = format(Date.of.Admission, "%m"),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
     DateTime.of.Admission = as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
     Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
@@ -36,6 +42,14 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c(""
     Sex = as.factor(Sex),
     Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
   )
+
+# what happened in january?
+first.week.2017 <- filter(patient.data, Year.Week == "2017-01")
+first.week.2016 <- filter(patient.data, Year.Week == "2016-01")
+normal.week <- filter(patient.data, Year.Week == "2016-13")
+first.week.2017 <- filter(patient.data, Year.Week == "2017-01")
+em.first.week.2016 <- filter(emergency.data, Year.Week == "2016-01")
+em.first.week.2017 <- filter(emergency.data, Year.Week == "2017-01")
 
 ## Data Exploration
 
@@ -151,7 +165,7 @@ ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_b
 # they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge)
+by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Month.Admission)
 patient.hospital.stays <- summarize(by_stay,
                               count = n(),
                               distinct.wards = n_distinct(Ward.Name)
@@ -277,22 +291,137 @@ elective.admissions.oddity <- filter(all.admissions, elective.count > 30)
 
 # check patterns per week instead, daily is a little too noisy
 emergency.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
-  group_by(Week.of.Admission) %>%
+  group_by(Year.Week) %>%
   summarise(em.count=n())
-maternity.admissions. <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
-  group_by(Week.of.Admission) %>%
+maternity.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
+  group_by(Year.Week) %>%
   summarise(mat.count=n())
-other.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
-  group_by(Week.of.Admission) %>%
+other.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
+  group_by(Year.Week) %>%
   summarise(other.count=n())
-elective.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
-  group_by(Week.of.Admission) %>%
+elective.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
+  group_by(Year.Week) %>%
   summarise(elective.count=n())
-all.admissions <- full_join(emergency.admissions,maternity.admissions) %>%
-  full_join(other.admissions) %>%
-  full_join(elective.admissions)
+all.admissions.wk <- full_join(emergency.admissions.wk,maternity.admissions.wk) %>%
+  full_join(other.admissions.wk) %>%
+  full_join(elective.admissions.wk)
+# check if this gets all the data
+other.types <- filter(patient.hospital.stays, Method.of.Admission.Category != "Emergency Admission" &&
+                                              Method.of.Admission.Category != "Maternity Admission" &&
+                                              Method.of.Admission.Category != "Other Admission" &&
+                                              Method.of.Admission.Category != "Elective Admission")
+# all good
+ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
+  geom_line(aes(y=em.count, colour="emergency")) +
+  geom_line(aes(y=mat.count, colour="maternity")) +
+  geom_line(aes(y=other.count, colour="other")) +
+  geom_line(aes(y=elective.count, colour="elective"))
+# emergency and others have different levels, so plot separately
+ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
+  geom_line(aes(y=em.count, colour="emergency")) +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
+plot.ts(all.admissions.wk$em.count)
+plot.ts(diff(all.admissions.wk$em.count))
+acf(all.admissions.wk$em.count)
+acf(diff(all.admissions.wk$em.count))
 
+plot.ts(all.admissions.wk$mat.count)
+plot.ts(diff(all.admissions.wk$mat.count))
+acf(all.admissions.wk$mat.count)
+acf(diff(all.admissions.wk$mat.count))
+
+plot.ts(all.admissions.wk$other.count)
+plot.ts(diff(all.admissions.wk$other.count))
+acf(all.admissions.wk$other.count)
+acf(diff(all.admissions.wk$other.count))
+
+plot.ts(all.admissions.wk$elective.count)
+plot.ts(diff(all.admissions.wk$elective.count))
+acf(all.admissions.wk$elective.count)
+acf(diff(all.admissions.wk$elective.count))
+
+# no cyclical patterns to speak of for any types of admissions.
+
+# peak around 5 for emergency, see if there's a day-of-month pattern
+emergency.grouped <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
+  group_by(Day.Admission, Month.Admission) %>%
+  summarize(count = n())
+
+# not conclusive (bars)
+ggplot(emergency.grouped, aes(Day.Admission, count)) +   
+  geom_bar(aes(fill = Month.Admission), position = "dodge", stat="identity")
+
+# box and whiskers
+ggplot(emergency.grouped, aes(Day.Admission, count)) + geom_boxplot()
+# jan <- filter(emergency.grouped, Month.Admission == "01") %>% 
+#   summarize(jan.count = n()) %>%
+#   select(Day.Admission, jan.count)
+# emergency.result <- jan
+# feb <- filter(emergency.grouped, Month.Admission == "02") %>% 
+#   summarize(feb.count = n()) %>%
+#   select(Day.Admission, feb.count)
+# emergency.result <- left_join(emergency.result, feb)
+# mar <- filter(emergency.grouped, Month.Admission == "03") %>% 
+#   summarize(mar.count = n()) %>%
+#   select(Day.Admission, mar.count)
+# emergency.result <- left_join(emergency.result, mar)
+# apr <- filter(emergency.grouped, Month.Admission == "04") %>% 
+#   summarize(apr.count = n()) %>%
+#   select(Day.Admission, apr.count)
+# emergency.result <- left_join(emergency.result, apr)
+# may <- filter(emergency.grouped, Month.Admission == "05") %>% 
+#   summarize(may.count = n()) %>%
+#   select(Day.Admission, may.count)
+# emergency.result <- left_join(emergency.result, may)
+# jun <- filter(emergency.grouped, Month.Admission == "06") %>% 
+#   summarize(jun.count = n()) %>%
+#   select(Day.Admission, jun.count)
+# emergency.result <- left_join(emergency.result, jun)
+# jul <- filter(emergency.grouped, Month.Admission == "07") %>% 
+#   summarize(jul.count = n()) %>%
+#   select(Day.Admission, jul.count)
+# emergency.result <- left_join(emergency.result, jul)
+# aug <- filter(emergency.grouped, Month.Admission == "08") %>% 
+#   summarize(aug.count = n()) %>%
+#   select(Day.Admission, aug.count)
+# emergency.result <- left_join(emergency.result, aug)
+# sep <- filter(emergency.grouped, Month.Admission == "09") %>% 
+#   summarize(sep.count = n()) %>%
+#   select(Day.Admission, sep.count)
+# emergency.result <- left_join(emergency.result, sep)
+# oct <- filter(emergency.grouped, Month.Admission == "10") %>% 
+#   summarize(oct.count = n()) %>%
+#   select(Day.Admission, oct.count)
+# emergency.result <- left_join(emergency.result, oct)
+# nov <- filter(emergency.grouped, Month.Admission == "11") %>% 
+#   summarize(nov.count = n()) %>%
+#   select(Day.Admission, nov.count)
+# emergency.result <- left_join(emergency.result, nov)
+# dec <- filter(emergency.grouped, Month.Admission == "12") %>% 
+#   summarize(dec.count = n()) %>%
+#   select(Day.Admission, dec.count)
+# emergency.result <- left_join(emergency.result, dec)
+# 
+# ggplot(data=emergency.result, aes(Day.Admission)) +
+#   geom_line(aes(y=jan.count, colour="jan")) 
+#   geom_line(aes(y=feb.count, colour="feb")) +
+#   geom_line(aes(y=mar.count, colour="mar")) +
+#   geom_line(aes(y=apr.count, colour="apr")) +
+#   geom_line(aes(y=may.count, colour="may")) +
+#   geom_line(aes(y=jun.count, colour="jun")) +
+#   geom_line(aes(y=jul.count, colour="jul")) +
+#   geom_line(aes(y=aug.count, colour="aug")) +
+#   geom_line(aes(y=sep.count, colour="sep")) +
+#   geom_line(aes(y=oct.count, colour="oct")) +
+#   geom_line(aes(y=nov.count, colour="nov")) +
+#   geom_line(aes(y=dec.count, colour="dec"))
+
+ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
+  geom_line(aes(y=mat.count, colour="maternity")) +
+  geom_line(aes(y=other.count, colour="other")) +
+  geom_line(aes(y=elective.count, colour="elective")) +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
 
 # plot per hour
