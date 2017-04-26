@@ -4,7 +4,7 @@ require(ggplot2)
 require(cowplot)
 require(tidyr)
 require(lubridate)
-require(zoo)
+require(sqldf)
 
 # for our own data source paths
 source("paths.R")
@@ -13,20 +13,24 @@ source("paths.R")
 # Emergency data
 emergency.data <- read.csv(emergency.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
                   mutate(
-                    Date.of.Admission = as.Date(Arrival.Date,format="%d/%m/%Y"),
+                    Date.of.Arrival = as.Date(Arrival.Date,format="%d/%m/%Y"),
                     Left.DateTime = as.Date(Left.Dept.Datetime,format="%d/%m/%Y %H:%M:%S"),
-                    Week.of.Admission = as.integer(format(Date.of.Admission,format="%W")) + 1,
-                    Month.of.Admission = format(Date.of.Admission, "%m"),
-                    Year.of.Admission = format(Date.of.Admission, "%Y"),
-                    Hour.of.Admission = hour(hm(Arrival.Time))
+                    Week.of.Arrival = as.integer(format(Date.of.Arrival,format="%W")) + 1,
+                    Month.of.Arrival = format(Date.of.Arrival, "%m"),
+                    Year.of.Arrival = format(Date.of.Arrival, "%Y"),
+                    Hour.of.Arrival = hour(hm(Arrival.Time)),
+                    Date.Decision.of.Admission = as.Date(DADT.DateTime, format="%d/%m/%Y %H:%M:%S"),
+                    Time.Decision.of.Admission = strftime(as.POSIXct(DADT.DateTime,format="%d/%m/%Y %H:%M:%S"), format="%H:%M"),
+                    DateTime.Decision.of.Admission = as.POSIXct(DADT.DateTime,format="%d/%m/%Y %H:%M:%S")
                   ) %>%
-                  rename(Time.of.Admission = Arrival.Time)
+                  rename(Time.of.Arrival = Arrival.Time)
 
 ## PAS data
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
+    DateTime.of.Admission = as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
     Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
     age.num = as.integer(Age),
     Sex = as.factor(Sex),
@@ -37,21 +41,21 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c(""
 
 #plotting arrivals per day
 arrivals.per.day <- emergency.data %>%
-                    group_by(Date.of.Admission) %>%
-                    arrange(Date.of.Admission) %>%
+                    group_by(Date.of.Arrival) %>%
+                    arrange(Date.of.Arrival) %>%
                     summarize(Count = n())
-ggplot(data = arrivals.per.day, aes(x = Date.of.Admission, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
+ggplot(data = arrivals.per.day, aes(x = Date.of.Arrival, y = Count)) + geom_point() + geom_smooth() + ggtitle("Arrivals per day")
 plot.ts(arrivals.per.day$Count)
 plot.ts(diff(arrivals.per.day$Count))
 acf(diff(arrivals.per.day$Count))
 
-arrivals.per.week <- group_by(emergency.data, Year.of.Admission,Week.of.Admission) %>%
-                     arrange(Year.of.Admission, Week.of.Admission) %>%
+arrivals.per.week <- group_by(emergency.data, Year.of.Arrival,Week.of.Arrival) %>%
+                     arrange(Year.of.Arrival, Week.of.Arrival) %>%
                      summarize(count = n())
 plot.ts(arrivals.per.week$count)
 
 # Arrivals per weekday
-emergency.data$Arrival.weekdays <- weekdays(emergency.data$Date.of.Admission, abbreviate = FALSE)
+emergency.data$Arrival.weekdays <- weekdays(emergency.data$Date.of.Arrival, abbreviate = FALSE)
 weekday.list <- c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")
 arrivals.per.weekday <- emergency.data %>%
                         group_by(Arrival.weekdays) %>%
@@ -70,7 +74,7 @@ ggplot(data=arrivals.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(st
 ggplot(arrivals.per.weekdays.and.triage, aes(x=weekday.ordered, y=Count)) + geom_col(aes(fill=Triage.Category.Description...Last))
 
 # Arrivals per month
-emergency.data$Arrival.months <- months(emergency.data$Date.of.Admission, abbreviate = FALSE)
+emergency.data$Arrival.months <- months(emergency.data$Date.of.Arrival, abbreviate = FALSE)
 
 arrivals.per.month <- emergency.data %>%
                       group_by(Arrival.months) %>%
@@ -85,9 +89,9 @@ ggplot(data=arrivals.per.month, aes(x=Arrival.months, y=Count)) + geom_bar(stat=
 ggplot(arrivals.per.month.per.triage, aes(x=Arrival.months, y=Count)) + geom_col(aes(fill=Triage.Category.Description...Last))
 
 # try to find timeseries arrival per month
-arrivals.per.month <- mutate(emergency.data, month.year = paste(Year.of.Admission, Month.of.Admission, sep="-")) %>%
-  group_by(Year.of.Admission,Month.of.Admission, month.year) %>%
-  arrange(Year.of.Admission, Month.of.Admission) %>%
+arrivals.per.month <- mutate(emergency.data, month.year = paste(Year.of.Arrival, Month.of.Arrival, sep="-")) %>%
+  group_by(Year.of.Arrival,Month.of.Arrival, month.year) %>%
+  arrange(Year.of.Arrival, Month.of.Arrival) %>%
   summarize(count = n())
 ggplot(data = arrivals.per.month, aes(x=month.year, y=count, group = 1)) + geom_line()
 plot.ts(diff(arrivals.per.month$count))
@@ -97,7 +101,7 @@ acf(arrivals.per.month$count)
 acf(diff(arrivals.per.month$count))
 
 # Arrivals per quarter
-emergency.data$Arrival.quarters <- quarters(emergency.data$Date.of.Admission, abbreviate = FALSE)
+emergency.data$Arrival.quarters <- quarters(emergency.data$Date.of.Arrival, abbreviate = FALSE)
 
 arrivals.per.quarter <- emergency.data %>%
                         group_by(Arrival.quarters) %>%
@@ -147,7 +151,7 @@ ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_b
 # they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge)
+by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge)
 patient.hospital.stays <- summarize(by_stay,
                               count = n(),
                               distinct.wards = n_distinct(Ward.Name)
@@ -195,6 +199,7 @@ patient.departures.per.day <- group_by(patient.hospital.stays, Date.of.Discharge
                               mutate(Date = Date.of.Discharge)
 # merge arrivals and departures
 patient.arrivals.and.departures <- full_join(patient.arrivals.per.day, patient.departures.per.day)
+# rolling count?
 
 
 patient.arrivals.per.month <- patient.hospital.stays %>%
@@ -225,8 +230,8 @@ patient.stays.per.method.of.discharge <- group_by(patient.hospital.stays, Method
 
 # merging patient data with emergency data
 
-# we can have more than one admission per day!
-emergency.data.duplicate.admissions <- group_by(emergency.data, H.C.Encrypted, Date.of.Admission) %>%
+# we can have more than one Arrival per day!
+emergency.data.duplicate.admissions <- group_by(emergency.data, H.C.Encrypted, Date.of.Arrival) %>%
   summarize(count = n()) %>%
   filter(count > 1)
 duplicate.id.1 <- emergency.data.duplicate.admissions[1,]$H.C.Encrypted
@@ -236,22 +241,24 @@ duplicate.patient <- filter(patient.data, H.C.Encrypted == duplicate.id.1)
 
 patient.hospital.without.ids <- filter(patient.hospital.stays, is.na(H.C.Encrypted))
 patient.hospital.with.ids <- filter(patient.hospital.stays, is.na(H.C.Encrypted) == F)
-patient.merged <- left_join(patient.hospital.with.ids, emergency.data)
+# these are the patients that are admitted
+# !! Arrival is not admission - arrival could be a little before admission (or not followed by admission)
+#patient.merged <- left_join(patient.hospital.with.ids, emergency.data)
+# making data in table and then using sqldf to merge
+#patient.merged <- sqldf('select patient.hospital.with.ids.*, emergency.data.* from patient.hospital left outer join emergency.data on patient.hospital.with.ids.H.C.Encrypted = emergency.data.H.C.Encrypted and patient.hospital.with.ids.DateTime.of.Admission <= emergency.data.DateTime.Decision.of.Admission + 14400')
 
-daily.admissions <- select(patient.merged, Date.of.Admission,Method.of.Admission.Category) %>%
-  gather(Date.of.Admission,Method.of.Admission.Category)
 # patterns with method of admission counted in?
 # pretty sure this could be done better
-emergency.admissions <- filter(patient.merged, Method.of.Admission.Category == "Emergency Admission") %>%
+emergency.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
   group_by(Date.of.Admission) %>%
   summarise(em.count=n())
-maternity.admissions <- filter(patient.merged, Method.of.Admission.Category == "Maternity Admission") %>%
+maternity.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
   group_by(Date.of.Admission) %>%
   summarise(mat.count=n())
-other.admissions <- filter(patient.merged, Method.of.Admission.Category == "Other Admission") %>%
+other.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
   group_by(Date.of.Admission) %>%
   summarise(other.count=n())
-elective.admissions <- filter(patient.merged, Method.of.Admission.Category == "Elective Admission") %>%
+elective.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
   group_by(Date.of.Admission) %>%
   summarise(elective.count=n())
 all.admissions <- full_join(emergency.admissions,maternity.admissions) %>%
@@ -266,9 +273,27 @@ ggplot(data=all.admissions, aes(Date.of.Admission)) +
 plot.ts(all.admissions$em.count)
 plot.ts(diff(all.admissions$em.count))
 
-
-
 elective.admissions.oddity <- filter(all.admissions, elective.count > 30)
+
+# check patterns per week instead, daily is a little too noisy
+emergency.admissions.wk <- filter(patient.merged, Method.of.Admission.Category == "Emergency Admission") %>%
+  group_by(Week.of.Admission) %>%
+  summarise(em.count=n())
+maternity.admissions. <- filter(patient.merged, Method.of.Admission.Category == "Maternity Admission") %>%
+  group_by(Week.of.Admission) %>%
+  summarise(mat.count=n())
+other.admissions <- filter(patient.merged, Method.of.Admission.Category == "Other Admission") %>%
+  group_by(Week.of.Admission) %>%
+  summarise(other.count=n())
+elective.admissions <- filter(patient.merged, Method.of.Admission.Category == "Elective Admission") %>%
+  group_by(Week.of.Admission) %>%
+  summarise(elective.count=n())
+all.admissions <- full_join(emergency.admissions,maternity.admissions) %>%
+  full_join(other.admissions) %>%
+  full_join(elective.admissions)
+
+
+
 
 # plot per hour
 ed.per.hour <- group_by(emergency.data, Hour.of.Admission) %>% summarize(count=n())
