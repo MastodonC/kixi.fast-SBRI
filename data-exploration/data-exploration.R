@@ -33,6 +33,8 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c(""
     Week.of.Admission = as.integer(format(Date.of.Admission,format="%W")) + 1,
     Year.of.Admission = format(Date.of.Admission, "%Y"),
     Year.Week = paste(Year.of.Admission, sprintf("%02d", Week.of.Admission), sep="-"),
+    Day.Admission = format(Date.of.Admission, "%d"),
+    Month.Admission = format(Date.of.Admission, "%m"),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
     DateTime.of.Admission = as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
     Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
@@ -163,7 +165,7 @@ ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_b
 # they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week)
+by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Month.Admission)
 patient.hospital.stays <- summarize(by_stay,
                               count = n(),
                               distinct.wards = n_distinct(Ward.Name)
@@ -318,6 +320,26 @@ ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
 ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
   geom_line(aes(y=em.count, colour="emergency")) +
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+plot.ts(all.admissions.wk$em.count)
+plot.ts(diff(all.admissions.wk$em.count))
+acf(all.admissions.wk$em.count)
+acf(diff(all.admissions.wk$em.count))
+
+# peak around 5 for emergency, see if there's a day-of-month pattern
+emergency.grouped <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
+  group_by(Day.Admission, Month.Admission)
+emergency.result <- summarise(emergency.grouped, total.count = n())
+for(month in distinct(patient.hospital.stays$Month.Admission)) {
+  m <- filter(emergency.grouped, Month.Admission == month) %>% 
+       summarise(month = n())
+  emergency.result <- left_join(emergency.result, m)
+}
+
+
+ggplot(data=emergency.admissions, aes(Day.Admission))
+
+
 ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
   geom_line(aes(y=mat.count, colour="maternity")) +
   geom_line(aes(y=other.count, colour="other")) +
