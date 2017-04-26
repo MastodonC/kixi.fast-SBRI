@@ -276,16 +276,16 @@ plot.ts(diff(all.admissions$em.count))
 elective.admissions.oddity <- filter(all.admissions, elective.count > 30)
 
 # check patterns per week instead, daily is a little too noisy
-emergency.admissions.wk <- filter(patient.merged, Method.of.Admission.Category == "Emergency Admission") %>%
+emergency.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
   group_by(Week.of.Admission) %>%
   summarise(em.count=n())
-maternity.admissions. <- filter(patient.merged, Method.of.Admission.Category == "Maternity Admission") %>%
+maternity.admissions. <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
   group_by(Week.of.Admission) %>%
   summarise(mat.count=n())
-other.admissions <- filter(patient.merged, Method.of.Admission.Category == "Other Admission") %>%
+other.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
   group_by(Week.of.Admission) %>%
   summarise(other.count=n())
-elective.admissions <- filter(patient.merged, Method.of.Admission.Category == "Elective Admission") %>%
+elective.admissions <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
   group_by(Week.of.Admission) %>%
   summarise(elective.count=n())
 all.admissions <- full_join(emergency.admissions,maternity.admissions) %>%
