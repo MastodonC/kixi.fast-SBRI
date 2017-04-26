@@ -326,19 +326,96 @@ plot.ts(diff(all.admissions.wk$em.count))
 acf(all.admissions.wk$em.count)
 acf(diff(all.admissions.wk$em.count))
 
+plot.ts(all.admissions.wk$mat.count)
+plot.ts(diff(all.admissions.wk$mat.count))
+acf(all.admissions.wk$mat.count)
+acf(diff(all.admissions.wk$mat.count))
+
+plot.ts(all.admissions.wk$other.count)
+plot.ts(diff(all.admissions.wk$other.count))
+acf(all.admissions.wk$other.count)
+acf(diff(all.admissions.wk$other.count))
+
+plot.ts(all.admissions.wk$elective.count)
+plot.ts(diff(all.admissions.wk$elective.count))
+acf(all.admissions.wk$elective.count)
+acf(diff(all.admissions.wk$elective.count))
+
+# no cyclical patterns to speak of for any types of admissions.
+
 # peak around 5 for emergency, see if there's a day-of-month pattern
 emergency.grouped <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
-  group_by(Day.Admission, Month.Admission)
-emergency.result <- summarise(emergency.grouped, total.count = n())
-for(month in distinct(patient.hospital.stays$Month.Admission)) {
-  m <- filter(emergency.grouped, Month.Admission == month) %>% 
-       summarise(month = n())
-  emergency.result <- left_join(emergency.result, m)
-}
+  group_by(Day.Admission, Month.Admission) %>%
+  summarize(count = n())
 
+# not conclusive (bars)
+ggplot(emergency.grouped, aes(Day.Admission, count)) +   
+  geom_bar(aes(fill = Month.Admission), position = "dodge", stat="identity")
 
-ggplot(data=emergency.admissions, aes(Day.Admission))
-
+# box and whiskers
+ggplot(emergency.grouped, aes(Day.Admission, count)) + geom_boxplot()
+# jan <- filter(emergency.grouped, Month.Admission == "01") %>% 
+#   summarize(jan.count = n()) %>%
+#   select(Day.Admission, jan.count)
+# emergency.result <- jan
+# feb <- filter(emergency.grouped, Month.Admission == "02") %>% 
+#   summarize(feb.count = n()) %>%
+#   select(Day.Admission, feb.count)
+# emergency.result <- left_join(emergency.result, feb)
+# mar <- filter(emergency.grouped, Month.Admission == "03") %>% 
+#   summarize(mar.count = n()) %>%
+#   select(Day.Admission, mar.count)
+# emergency.result <- left_join(emergency.result, mar)
+# apr <- filter(emergency.grouped, Month.Admission == "04") %>% 
+#   summarize(apr.count = n()) %>%
+#   select(Day.Admission, apr.count)
+# emergency.result <- left_join(emergency.result, apr)
+# may <- filter(emergency.grouped, Month.Admission == "05") %>% 
+#   summarize(may.count = n()) %>%
+#   select(Day.Admission, may.count)
+# emergency.result <- left_join(emergency.result, may)
+# jun <- filter(emergency.grouped, Month.Admission == "06") %>% 
+#   summarize(jun.count = n()) %>%
+#   select(Day.Admission, jun.count)
+# emergency.result <- left_join(emergency.result, jun)
+# jul <- filter(emergency.grouped, Month.Admission == "07") %>% 
+#   summarize(jul.count = n()) %>%
+#   select(Day.Admission, jul.count)
+# emergency.result <- left_join(emergency.result, jul)
+# aug <- filter(emergency.grouped, Month.Admission == "08") %>% 
+#   summarize(aug.count = n()) %>%
+#   select(Day.Admission, aug.count)
+# emergency.result <- left_join(emergency.result, aug)
+# sep <- filter(emergency.grouped, Month.Admission == "09") %>% 
+#   summarize(sep.count = n()) %>%
+#   select(Day.Admission, sep.count)
+# emergency.result <- left_join(emergency.result, sep)
+# oct <- filter(emergency.grouped, Month.Admission == "10") %>% 
+#   summarize(oct.count = n()) %>%
+#   select(Day.Admission, oct.count)
+# emergency.result <- left_join(emergency.result, oct)
+# nov <- filter(emergency.grouped, Month.Admission == "11") %>% 
+#   summarize(nov.count = n()) %>%
+#   select(Day.Admission, nov.count)
+# emergency.result <- left_join(emergency.result, nov)
+# dec <- filter(emergency.grouped, Month.Admission == "12") %>% 
+#   summarize(dec.count = n()) %>%
+#   select(Day.Admission, dec.count)
+# emergency.result <- left_join(emergency.result, dec)
+# 
+# ggplot(data=emergency.result, aes(Day.Admission)) +
+#   geom_line(aes(y=jan.count, colour="jan")) 
+#   geom_line(aes(y=feb.count, colour="feb")) +
+#   geom_line(aes(y=mar.count, colour="mar")) +
+#   geom_line(aes(y=apr.count, colour="apr")) +
+#   geom_line(aes(y=may.count, colour="may")) +
+#   geom_line(aes(y=jun.count, colour="jun")) +
+#   geom_line(aes(y=jul.count, colour="jul")) +
+#   geom_line(aes(y=aug.count, colour="aug")) +
+#   geom_line(aes(y=sep.count, colour="sep")) +
+#   geom_line(aes(y=oct.count, colour="oct")) +
+#   geom_line(aes(y=nov.count, colour="nov")) +
+#   geom_line(aes(y=dec.count, colour="dec"))
 
 ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
   geom_line(aes(y=mat.count, colour="maternity")) +
