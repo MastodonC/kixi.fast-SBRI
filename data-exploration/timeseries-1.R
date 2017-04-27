@@ -51,9 +51,17 @@ em.pred.data <-mutate(data.frame(Year.of.Admission = rep(last.year,prediction.le
                                  Week.of.Admission = (last.week+1):(last.week+prediction.length),
                                  em.count = em.admissions.pred),
                          em.count = as.integer(em.count),
+                         Week.of.Admission = as.integer(Week.of.Admission),
                          Year.of.Admission = as.character(Year.of.Admission))
 
-em.admissions.wk.result <- rbind(emergency.admissions.wk, em.pred.data)
+emergency.admissions.final <- emergency.admissions.wk
+emergency.admissions.nrow <- nrow(emergency.admissions.wk)
+for (i in 1:prediction.length) {
+  emergency.admissions.final[emergency.admissions.nrow+i,] <- em.pred.data[i,]
+}
+
+em.admissions.wk.result <- rbind(emergency.admissions.wk, em.pred.data[1,])
+tst <- rbind(em.admissions.wk.result, em.pred.data[2,])
 
 ### Maternity admissions
 
