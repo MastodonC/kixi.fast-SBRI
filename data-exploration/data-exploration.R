@@ -27,6 +27,7 @@ emergency.data <- read.csv(emergency.data.path, stringsAsFactors = F,na.strings=
                   rename(Time.of.Arrival = Arrival.Time)
 
 ## PAS data
+
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
@@ -40,7 +41,9 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c(""
     Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
     age.num = as.integer(Age),
     Sex = as.factor(Sex),
-    Method.of.Admission.Category = as.factor(Method.of.Admission.Category)
+    Method.of.Admission.Category = as.factor(Method.of.Admission.Category),
+    age.group = as.character(cut(Age, breaks=c(-1,10,20,30,40,50,60,70,80,90,Inf),
+                                   labels=c('0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80-90', 'Over 90')))
   )
 
 # what happened in january?
@@ -165,7 +168,7 @@ ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_b
 # they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(patient.data, H.C.Encrypted,age.num,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Month.Admission)
+by_stay <- group_by(patient.data, H.C.Encrypted,age.num, age.group,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Month.Admission, Year.of.Admission)
 patient.hospital.stays <- summarize(by_stay,
                               count = n(),
                               distinct.wards = n_distinct(Ward.Name)
@@ -326,6 +329,10 @@ plot.ts(diff(all.admissions.wk$em.count))
 acf(all.admissions.wk$em.count)
 acf(diff(all.admissions.wk$em.count))
 
+em.model <- arima(all.admissions.wk$em.count, order = c(1,1,1))
+em.prediction <-predict(em.model,n.ahead=20)
+plot.ts(c(all.admissions$em.count,em.prediction$pred[1:20]))
+
 plot.ts(all.admissions.wk$mat.count)
 plot.ts(diff(all.admissions.wk$mat.count))
 acf(all.admissions.wk$mat.count)
@@ -442,7 +449,16 @@ patient.data.ordered <- arrange(patient.data,H.C.Encrypted,Date.of.Admission,Tim
 # TODO:
 # possibly output per hour to have profiles, also weekdays and weekends
 
-
+admissions.per.month <- mutate(patient.hospital.stays, month.year = paste(Year.of.Admission, Month.Admission, sep="-")) %>%
+  group_by(month.year, Date.of.Admission) %>%
+  summarize(count = n())
+ggplot(admissions.per.month, aes(month.year, count)) + geom_boxplot()
+admissions.per.month.year <- mutate(patient.hospital.stays, month.year = paste(Year.of.Admission, Month.Admission, sep="-")) %>%
+  group_by(month.year) %>%
+  summarize(count = n())
+acf(admissions.per.month.year$count)
+acf(diff(admissions.per.month.year$count))
+acf(diff(diff(admissions.per.month.year$count)))
 
 # anomalous data
 # 130 rows with NA lenght of stay
