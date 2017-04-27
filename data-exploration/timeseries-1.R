@@ -1,3 +1,4 @@
+require(plyr)
 require(dplyr)
 require(reshape2)
 require(ggplot2)
@@ -32,7 +33,7 @@ patient.hospital.stays <- summarize(by_stay,
 
 
 ### Emergency admissions prediction
-
+## Weeks
 emergency.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
   group_by(Year.of.Admission, Week.of.Admission) %>%
   arrange(Year.of.Admission, Week.of.Admission) %>%
@@ -59,6 +60,39 @@ emergency.admissions.nrow <- nrow(emergency.admissions.wk)
 for (i in 1:prediction.length) {
   emergency.admissions.final[emergency.admissions.nrow+i,] <- em.pred.data[i,]
 }
+
+## Weekdays
+patient.hospital.stays$Admission.weekdays <- weekdays(patient.hospital.stays$Date.of.Admission, abbreviate = FALSE)
+
+weekday.list <- c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")
+
+admissions.per.weekday <- patient.hospital.stays %>%
+                          group_by(Admission.weekdays) %>%
+                          summarize(Count = n()) %>%
+                          mutate(weekday.ordered = factor(Admission.weekdays, levels = weekday.list)) %>%
+                          arrange(weekday.ordered)
+
+total_admissions <- nrow(patient.hospital.stays)
+
+weekday.admissions.proportions <- admissions.per.weekday %>%
+                                  mutate(proportions = Count / total_admissions)
+
+#weeks_dates <- patient.hospital.stays %>%
+               #group_by(Week.of.Admission, Date.of.Admission)
+
+#weeks_dates <- weeks_dates[,c("Week.of.Admission","Date.of.Admission")]
+
+
+weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1), 
+                             mutate(emergency.admissions.final, day = 2), 
+                             mutate(emergency.admissions.final, day = 3),
+                             mutate(emergency.admissions.final, day = 4), 
+                             mutate(emergency.admissions.final, day = 5), 
+                             mutate(emergency.admissions.final, day = 6),
+                             mutate(emergency.admissions.final, day = 7)) %>% 
+                   arrange(Year.of.Admission,Week.of.Admission, day) %>%
+                   mutate(date = as.Date(paste(Year.of.Admission, (Week.of.Admission - 1), day, sep="-"), "%Y-%W-%u")) %>%
+                   mutate(weekday = weekdays(date, abbreviate = FALSE))
 
 ### Maternity admissions
 
