@@ -1,4 +1,3 @@
-require(plyr)
 require(dplyr)
 require(reshape2)
 require(ggplot2)
@@ -91,7 +90,7 @@ weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1),
                              mutate(emergency.admissions.final, day = 6),
                              mutate(emergency.admissions.final, day = 7)) %>% 
                    arrange(Year.of.Admission,Week.of.Admission, day) %>%
-                   mutate(date = as.Date(paste(Year.of.Admission, (Week.of.Admission - 1), day, sep="-"), "%Y-%W-%u")) %>%
+                   mutate(date = as.Date(paste(Year.of.Admission, Week.of.Admission, day, sep="-"), "%Y-%W-%u")) %>%
                    mutate(weekday = weekdays(date, abbreviate = FALSE))
 
 ### Maternity admissions
