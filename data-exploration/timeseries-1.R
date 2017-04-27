@@ -60,9 +60,6 @@ for (i in 1:prediction.length) {
   emergency.admissions.final[emergency.admissions.nrow+i,] <- em.pred.data[i,]
 }
 
-em.admissions.wk.result <- rbind(emergency.admissions.wk, em.pred.data[1,])
-tst <- rbind(em.admissions.wk.result, em.pred.data[2,])
-
 ### Maternity admissions
 
 maternity.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
