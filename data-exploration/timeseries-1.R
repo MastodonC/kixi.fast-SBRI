@@ -1,14 +1,15 @@
 require(dplyr)
 require(reshape2)
 require(ggplot2)
+require(lubridate)
 
 # for our own data source paths
 source("paths.R")
 
-patient.data <- read.csv(patient.data.path, stringsAsFactors = F,na.strings=c("","NA")) %>%
+patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
-    Week.of.Admission = as.integer(format(Date.of.Admission,format="%W")) + 1,
+    Week.of.Admission = week(Date.of.Admission),
     Year.of.Admission = format(Date.of.Admission, "%Y"),
     Year.Week = paste(Year.of.Admission, sprintf("%02d", Week.of.Admission), sep="-"),
     Day.Admission = format(Date.of.Admission, "%d"),
@@ -76,12 +77,6 @@ total_admissions <- nrow(patient.hospital.stays)
 weekday.admissions.proportions <- admissions.per.weekday %>%
                                   mutate(proportions = Count / total_admissions)
 
-#weeks_dates <- patient.hospital.stays %>%
-               #group_by(Week.of.Admission, Date.of.Admission)
-
-#weeks_dates <- weeks_dates[,c("Week.of.Admission","Date.of.Admission")]
-
-
 weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1), 
                              mutate(emergency.admissions.final, day = 2), 
                              mutate(emergency.admissions.final, day = 3),
@@ -90,7 +85,7 @@ weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1),
                              mutate(emergency.admissions.final, day = 6),
                              mutate(emergency.admissions.final, day = 7)) %>% 
                    arrange(Year.of.Admission,Week.of.Admission, day) %>%
-                   mutate(date = as.Date(paste(Year.of.Admission, Week.of.Admission, day, sep="-"), "%Y-%W-%u")) %>%
+                   mutate(date = as.Date(paste(Year.of.Admission, (Week.of.Admission - 1), day, sep="-"), "%Y-%W-%u")) %>%
                    mutate(weekday = weekdays(date, abbreviate = FALSE))
 
 ### Maternity admissions
