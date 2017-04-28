@@ -6,6 +6,28 @@ require(lubridate)
 # for our own data source paths
 source("paths.R")
 
+remove_first_and_last <- function(dataframe) {
+  head(dataframe[-1,], -1) # remove first and last row
+}
+
+calculate.weekly.counts.from.proportions <- function(weekly.data, proportions.data) {
+  bind_rows(mutate(weekly.data, day = 1),
+            mutate(weekly.data, day = 2),
+            mutate(weekly.data, day = 3),
+            mutate(weekly.data, day = 4),
+            mutate(weekly.data, day = 5),
+            mutate(weekly.data, day = 6),
+            mutate(weekly.data, day = 7)) %>%
+    arrange(Year.of.Admission,Week.of.Admission, day) %>%
+    mutate(date = as.Date(paste(Year.of.Admission, Week.of.Admission, (day-1), sep="-"), format="%Y-%U-%w"))  %>%
+    mutate(date = if_else(is.na(date),
+                          as.Date(paste((as.integer(Year.of.Admission)+1), 0, (day-1), sep="-"), format="%Y-%U-%w"),
+                          date))  %>% # remove the last days of the last week
+    mutate(Admission.weekdays = weekdays(date, abbreviate = FALSE)) %>%
+    inner_join(proportions.data) %>%
+    mutate(daily.count = weekly.count * proportions)
+}
+
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
@@ -37,29 +59,31 @@ patient.hospital.stays <- summarize(by_stay,
 emergency.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
   group_by(Year.of.Admission, Week.of.Admission) %>%
   arrange(Year.of.Admission, Week.of.Admission) %>%
-  summarise(em.count=n())
+  summarise(weekly.count=n())
+
+emergency.admissions.wk <- remove_first_and_last(emergency.admissions.wk)
 
 last.year <- max(emergency.admissions.wk$Year.of.Admission)
 last.week <- as.integer(last(emergency.admissions.wk$Week.of.Admission))
 prediction.length <- 20
 
-em.model <- arima(emergency.admissions.wk$em.count, order = c(1,1,1))
+em.model <- arima(emergency.admissions.wk$weekly.count, order = c(1,1,1))
 em.prediction <-predict(em.model,n.ahead=prediction.length)
 em.admissions.pred <- em.prediction$pred[1:prediction.length]
 # we just use the same year for this situation
 # together in data set
 em.pred.data <-mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
                                  Week.of.Admission = (last.week+1):(last.week+prediction.length),
-                                 em.count = em.admissions.pred),
-                         em.count = as.integer(em.count),
+                                 weekly.count = em.admissions.pred),
+                         weekly.count = as.integer(weekly.count),
                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
                          Year.of.Admission = as.character(Year.of.Admission))
 
 emergency.admissions.final <- bind_rows(emergency.admissions.wk,em.pred.data)
 
 ## Weekdays
-patient.hospital.stays$Admission.weekdays <- weekdays(patient.hospital.stays$Date.of.Admission, abbreviate = FALSE)
 weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+patient.hospital.stays$Admission.weekdays <- weekdays(patient.hospital.stays$Date.of.Admission, abbreviate = FALSE)
 
 admissions.per.weekday <- patient.hospital.stays %>%
                           group_by(Admission.weekdays) %>%
@@ -87,44 +111,64 @@ ggplot(data=emergency.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) +
 #weeks_dates <- patient.hospital.stays %>%
                #group_by(Week.of.Admission, Date.of.Admission)
 
-#weeks_dates <- weeks_dates[,c("Week.of.Admission","Date.of.Admission")]
+# using proportions to calculate counts for days of week
+emergency.admissions.days <- calculate.weekly.counts.from.proportions(emergency.admissions.final, emergency.weekday.admissions.proportions)
 
-weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1),
-                             mutate(emergency.admissions.final, day = 2),
-                             mutate(emergency.admissions.final, day = 3),
-                             mutate(emergency.admissions.final, day = 4),
-                             mutate(emergency.admissions.final, day = 5),
-                             mutate(emergency.admissions.final, day = 6),
-                             mutate(emergency.admissions.final, day = 7)) %>%
-                   arrange(Year.of.Admission,Week.of.Admission, day) %>%
-                   mutate(date = as.Date(paste(Year.of.Admission, (Week.of.Admission-1), (day-1), sep="-"), format="%Y-%U-%w"))  %>%
-                   mutate(date = if_else(is.na(date),
-                                         as.Date(paste((as.integer(Year.of.Admission)+1), 0, (day-1), sep="-"), format="%Y-%U-%w"),
-                                         date))  %>% # remove the last days of the last week
-                   mutate(Admission.weekdays = weekdays(date, abbreviate = FALSE)) %>%
-                   inner_join(emergency.weekday.admissions.proportions) %>%
-                   mutate(daily.count = em.count * proportions)
-
-  # breakdown that matters: method of admission , gender, age
+# breakdown that matters: method of admission , gender, age
 
 
 ### Maternity admissions
 
 maternity.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
-  group_by(Year.Week) %>%
-  summarise(mat.count=n())
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n())
+maternity.admissions.wk <- remove_first_and_last(maternity.admissions.wk)
+
+acf(diff(maternity.admissions.wk$weekly.count)) # not very conclusive, no clear pattern
+plot.ts(maternity.admissions.wk$weekly.count)
+plot.ts(diff(maternity.admissions.wk$weekly.count))
+mat.model <- arima(maternity.admissions.wk$weekly.count, order = c(1,0,0)) #simplest has best fit ...
+mat.prediction <-predict(mat.model,n.ahead=prediction.length)
+mat.admissions.pred <- mat.prediction$pred[1:prediction.length]
+plot.ts(c(maternity.admissions.wk$weekly.count,mat.admissions.pred))
+
+mat.pred.data <-mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                 Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                 weekly.count = mat.admissions.pred),
+                      weekly.count = as.integer(weekly.count),
+                      Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                      Year.of.Admission = as.character(Year.of.Admission))
+maternity.admissions.final <- bind_rows(maternity.admissions.wk,mat.pred.data)
+
+# calculate proportions
+maternity.admissions.per.weekday <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
+  group_by(Admission.weekdays) %>%
+  summarize(Count = n()) %>%
+  mutate(weekday.ordered = factor(Admission.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+maternity.total_admissions <- nrow(filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission"))
+maternity.weekday.admissions.proportions <- maternity.admissions.per.weekday %>%
+  mutate(proportions = Count / maternity.total_admissions) %>%
+  select(Admission.weekdays, proportions)
+ggplot(data=maternity.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
+
+maternity.admissions.days <- calculate.weekly.counts.from.proportions(maternity.admissions.final, maternity.weekday.admissions.proportions)
+
 
 ### Other admissions
 
 other.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
-  group_by(Year.Week) %>%
-  summarise(other.count=n())
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n())
 
 ### Elective admissions
 
 elective.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
-  group_by(Year.Week) %>%
-  summarise(elective.count=n())
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n())
 
 ### TODO:
 # predictions at weekly level
