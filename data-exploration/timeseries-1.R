@@ -9,9 +9,9 @@ source("paths.R")
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
-    Week.of.Admission = week(Date.of.Admission),
+    Week.of.Admission = format(Date.of.Admission, "%U"),
     Year.of.Admission = format(Date.of.Admission, "%Y"),
-    Year.Week = paste(Year.of.Admission, sprintf("%02d", Week.of.Admission), sep="-"),
+    Year.Week = paste(Year.of.Admission, Week.of.Admission, sep="-"),
     Day.Admission = format(Date.of.Admission, "%d"),
     Month.Admission = format(Date.of.Admission, "%m"),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
@@ -40,7 +40,7 @@ emergency.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Ca
   summarise(em.count=n())
 
 last.year <- max(emergency.admissions.wk$Year.of.Admission)
-last.week <- last(emergency.admissions.wk$Week.of.Admission)
+last.week <- as.integer(last(emergency.admissions.wk$Week.of.Admission))
 prediction.length <- 20
 
 em.model <- arima(emergency.admissions.wk$em.count, order = c(1,1,1))
@@ -52,14 +52,10 @@ em.pred.data <-mutate(data.frame(Year.of.Admission = rep(last.year,prediction.le
                                  Week.of.Admission = (last.week+1):(last.week+prediction.length),
                                  em.count = em.admissions.pred),
                          em.count = as.integer(em.count),
-                         Week.of.Admission = as.integer(Week.of.Admission),
+                         Week.of.Admission = sprintf("%02d", Week.of.Admission),
                          Year.of.Admission = as.character(Year.of.Admission))
 
-emergency.admissions.final <- emergency.admissions.wk
-emergency.admissions.nrow <- nrow(emergency.admissions.wk)
-for (i in 1:prediction.length) {
-  emergency.admissions.final[emergency.admissions.nrow+i,] <- em.pred.data[i,]
-}
+emergency.admissions.final <- bind_rows(emergency.admissions.wk,em.pred.data)
 
 ## Weekdays
 patient.hospital.stays$Admission.weekdays <- weekdays(patient.hospital.stays$Date.of.Admission, abbreviate = FALSE)
