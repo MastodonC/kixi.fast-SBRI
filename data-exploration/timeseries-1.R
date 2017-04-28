@@ -63,8 +63,7 @@ for (i in 1:prediction.length) {
 
 ## Weekdays
 patient.hospital.stays$Admission.weekdays <- weekdays(patient.hospital.stays$Date.of.Admission, abbreviate = FALSE)
-
-weekday.list <- c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")
+weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
 
 admissions.per.weekday <- patient.hospital.stays %>%
                           group_by(Admission.weekdays) %>%
@@ -76,17 +75,42 @@ total_admissions <- nrow(patient.hospital.stays)
 
 weekday.admissions.proportions <- admissions.per.weekday %>%
                                   mutate(proportions = Count / total_admissions)
+ggplot(data=admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
 
-weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1), 
-                             mutate(emergency.admissions.final, day = 2), 
+
+emergency.admissions.per.weekday <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
+  group_by(Admission.weekdays) %>%
+  summarize(Count = n()) %>%
+  mutate(weekday.ordered = factor(Admission.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+emergency.total_admissions <- nrow(filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission"))
+emergency.weekday.admissions.proportions <- emergency.admissions.per.weekday %>%
+  mutate(proportions = Count / emergency.total_admissions) %>%
+  select(Admission.weekdays, proportions)
+ggplot(data=emergency.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
+#weeks_dates <- patient.hospital.stays %>%
+               #group_by(Week.of.Admission, Date.of.Admission)
+
+#weeks_dates <- weeks_dates[,c("Week.of.Admission","Date.of.Admission")]
+
+weekly_weekdays <- bind_rows(mutate(emergency.admissions.final, day = 1),
+                             mutate(emergency.admissions.final, day = 2),
                              mutate(emergency.admissions.final, day = 3),
-                             mutate(emergency.admissions.final, day = 4), 
-                             mutate(emergency.admissions.final, day = 5), 
+                             mutate(emergency.admissions.final, day = 4),
+                             mutate(emergency.admissions.final, day = 5),
                              mutate(emergency.admissions.final, day = 6),
-                             mutate(emergency.admissions.final, day = 7)) %>% 
+                             mutate(emergency.admissions.final, day = 7)) %>%
                    arrange(Year.of.Admission,Week.of.Admission, day) %>%
-                   mutate(date = as.Date(paste(Year.of.Admission, (Week.of.Admission - 1), day, sep="-"), "%Y-%W-%u")) %>%
-                   mutate(weekday = weekdays(date, abbreviate = FALSE))
+                   mutate(date = as.Date(paste(Year.of.Admission, (Week.of.Admission-1), (day-1), sep="-"), format="%Y-%U-%w"))  %>%
+                   mutate(date = if_else(is.na(date),
+                                         as.Date(paste((as.integer(Year.of.Admission)+1), 0, (day-1), sep="-"), format="%Y-%U-%w"),
+                                         date))  %>% # remove the last days of the last week
+                   mutate(Admission.weekdays = weekdays(date, abbreviate = FALSE)) %>%
+                   inner_join(emergency.weekday.admissions.proportions) %>%
+                   mutate(daily.count = em.count * proportions)
+
+  # breakdown that matters: method of admission , gender, age
+
 
 ### Maternity admissions
 
