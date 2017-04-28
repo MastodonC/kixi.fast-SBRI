@@ -157,11 +157,49 @@ maternity.admissions.days <- calculate.weekly.counts.from.proportions(maternity.
 
 
 ### Other admissions
-
+# Weekly other admission data
 other.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
   group_by(Year.of.Admission, Week.of.Admission) %>%
   arrange(Year.of.Admission, Week.of.Admission) %>%
   summarise(weekly.count=n())
+
+other.admissions.wk <- remove_first_and_last(other.admissions.wk)
+
+# ACF
+acf(diff(other.admissions.wk$weekly.count))
+plot.ts(other.admissions.wk$weekly.count)
+plot.ts(diff(other.admissions.wk$weekly.count))
+
+# ARIMA
+other.model <- arima(other.admissions.wk$weekly.count, order = c(1,1,0), # added seasonality to have peaks in predictions and 1,1,0 for upward trend
+                     seasonal = list(order = c(1, 1, 1),period = 14))
+other.prediction <-predict(other.model,n.ahead=prediction.length)
+other.admissions.pred <- other.prediction$pred[1:prediction.length]
+plot.ts(c(other.admissions.wk$weekly.count,other.admissions.pred))
+
+# Formatted dataframe w/ historical data + predictions
+other.pred.data <-mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                  Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                  weekly.count = other.admissions.pred),
+                       weekly.count = as.integer(weekly.count),
+                       Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                       Year.of.Admission = as.character(Year.of.Admission))
+other.admissions.final <- bind_rows(other.admissions.wk,other.pred.data)
+
+# Other admission proportions per weekday
+other.admissions.per.weekday <- filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission") %>%
+  group_by(Admission.weekdays) %>%
+  summarize(Count = n()) %>%
+  mutate(weekday.ordered = factor(Admission.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+
+other.total_admissions <- nrow(filter(patient.hospital.stays, Method.of.Admission.Category == "Other Admission"))
+other.weekday.admissions.proportions <- other.admissions.per.weekday %>%
+  mutate(proportions = Count / other.total_admissions) %>%
+  select(Admission.weekdays, proportions)
+ggplot(data=other.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
+
+other.admissions.days <- calculate.weekly.counts.from.proportions(other.admissions.final, other.weekday.admissions.proportions)
 
 ### Elective admissions
 
