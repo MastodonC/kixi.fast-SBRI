@@ -208,10 +208,51 @@ elective.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Cat
   arrange(Year.of.Admission, Week.of.Admission) %>%
   summarise(weekly.count=n())
 
+elective.admissions.wk <- remove_first_and_last(elective.admissions.wk)
+
+# ACF
+acf(diff(elective.admissions.wk$weekly.count))
+plot.ts(elective.admissions.wk$weekly.count)
+plot.ts(diff(elective.admissions.wk$weekly.count))
+
+# ARIMA
+elective.model <- arima(elective.admissions.wk$weekly.count, order = c(1,0,0))
+elective.prediction <-predict(elective.model,n.ahead=prediction.length)
+elective.admissions.pred <- elective.prediction$pred[1:prediction.length]
+plot.ts(c(elective.admissions.wk$weekly.count,elective.admissions.pred))
+
+# Formatted dataframe w/ historical data + predictions
+elective.pred.data <-mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                    Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                    weekly.count = elective.admissions.pred),
+                         weekly.count = as.integer(weekly.count),
+                         Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                         Year.of.Admission = as.character(Year.of.Admission))
+elective.admissions.final <- bind_rows(elective.admissions.wk,elective.pred.data)
+
+# Elective admission proportions per weekday
+elective.admissions.per.weekday <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
+  group_by(Admission.weekdays) %>%
+  summarize(Count = n()) %>%
+  mutate(weekday.ordered = factor(Admission.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+
+elective.total_admissions <- nrow(filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission"))
+elective.weekday.admissions.proportions <- elective.admissions.per.weekday %>%
+  mutate(proportions = Count / elective.total_admissions) %>%
+  select(Admission.weekdays, proportions)
+ggplot(data=elective.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
+
+elective.admissions.days <- calculate.weekly.counts.from.proportions(elective.admissions.final, elective.weekday.admissions.proportions)
+
 ### TODO:
-# predictions at weekly level
-# probabilities per day: split over day of week (getting daily counts)
-# probabilities per hour: split over hour per day
+# predictions at weekly level [DONE]
+# probabilities per day: split over day of week (getting weekdays counts) [DONE]
+# probabilities per hour: split over hour per day [TO DO]
 
 
-# which things are we going to predict
+## Which things are we going to predict
+# * method of admission
+# * sex 
+# 10 years age bands (0-9 , 10-19...)
+# specialty descriptions (can be grouped at a higher level)
