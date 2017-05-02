@@ -114,11 +114,17 @@ ggplot(data=emergency.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) +
 # using proportions to calculate counts for days of week
 emergency.admissions.days <- calculate.weekly.counts.from.proportions(emergency.admissions.final, emergency.weekday.admissions.proportions)
 
+# Prepare data for join with other admission types
+# 1) one row per date
+emergency.admissions.per.date <- emergency.admissions.days
+names(emergency.admissions.per.date)[names(emergency.admissions.per.date) == "daily.count"] = "Emergency Admission"
+# 2) one row per type of patients count
+emergency.admissions.per.type <- emergency.admissions.days
+emergency.admissions.per.type$Admission.Type <- rep("Emergency admission", nrow(emergency.admissions.per.type))
+
 # breakdown that matters: method of admission , gender, age
 
-
 ### Maternity admissions
-
 maternity.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Maternity Admission") %>%
   group_by(Year.of.Admission, Week.of.Admission) %>%
   arrange(Year.of.Admission, Week.of.Admission) %>%
@@ -155,6 +161,13 @@ ggplot(data=maternity.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) +
 
 maternity.admissions.days <- calculate.weekly.counts.from.proportions(maternity.admissions.final, maternity.weekday.admissions.proportions)
 
+# prepare for join
+# 1)
+maternity.admissions.per.date <- maternity.admissions.days
+names(maternity.admissions.per.date)[names(maternity.admissions.per.date) == "daily.count"] = "Maternity Admission"
+# 2)
+maternity.admissions.per.type <- maternity.admissions.days
+maternity.admissions.per.type$Admission.Type <- rep("Maternity admission", nrow(maternity.admissions.per.type))
 
 ### Other admissions
 # Weekly other admission data
@@ -201,6 +214,14 @@ ggplot(data=other.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geo
 
 other.admissions.days <- calculate.weekly.counts.from.proportions(other.admissions.final, other.weekday.admissions.proportions)
 
+# prepare for join
+# 1)
+other.admissions.per.date <- other.admissions.days
+names(other.admissions.per.date)[names(other.admissions.per.date) == "daily.count"] = "Other Admission"
+# 2)
+other.admissions.per.type <- other.admissions.days
+other.admissions.per.type$Admission.Type <- rep("Other admission", nrow(other.admissions.per.type))
+
 ### Elective admissions
 
 elective.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Elective Admission") %>%
@@ -244,6 +265,24 @@ elective.weekday.admissions.proportions <- elective.admissions.per.weekday %>%
 ggplot(data=elective.admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
 
 elective.admissions.days <- calculate.weekly.counts.from.proportions(elective.admissions.final, elective.weekday.admissions.proportions)
+
+# prepare for join
+# 1)
+elective.admissions.per.date <- elective.admissions.days
+names(elective.admissions.per.date)[names(elective.admissions.per.date) == "daily.count"] = "Elective Admission"
+# 2)
+elective.admissions.per.type <- elective.admissions.days
+elective.admissions.per.type$Admission.Type <- rep("Elective admission", nrow(elective.admissions.per.type))
+
+### Join all admissions daily projections:
+# 1) Join all data frames on the "date" column
+all.admissions.per.date <- emergency.admissions.per.date %>%
+                           inner_join(maternity.admissions.per.date, by="date")
+# 2) merge rows of all data frames
+all.admissions.per.type <- rbind(emergency.admissions.per.type, maternity.admissions.per.type, 
+                                 other.admissions.per.type, elective.admissions.per.type)
+
+write.csv(all.admissions.per.type, file=admissions.per.type.path, row.names=F)
 
 ### TODO:
 # predictions at weekly level [DONE]
