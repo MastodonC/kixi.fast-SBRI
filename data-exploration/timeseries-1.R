@@ -117,7 +117,7 @@ emergency.admissions.days <- calculate.weekly.counts.from.proportions(emergency.
 # Prepare data for join with other admission types
 # 1) one row per date
 emergency.admissions.per.date <- emergency.admissions.days
-names(emergency.admissions.per.date)[names(emergency.admissions.per.date) == "daily.count"] = "Emergency Admission"
+names(emergency.admissions.per.date)[names(emergency.admissions.per.date) == "daily.count"] = "Emergency.Admission"
 # 2) one row per type of patients count
 emergency.admissions.per.type <- emergency.admissions.days
 emergency.admissions.per.type$Admission.Type <- rep("Emergency admission", nrow(emergency.admissions.per.type))
@@ -164,7 +164,7 @@ maternity.admissions.days <- calculate.weekly.counts.from.proportions(maternity.
 # prepare for join
 # 1)
 maternity.admissions.per.date <- maternity.admissions.days
-names(maternity.admissions.per.date)[names(maternity.admissions.per.date) == "daily.count"] = "Maternity Admission"
+names(maternity.admissions.per.date)[names(maternity.admissions.per.date) == "daily.count"] = "Maternity.Admission"
 # 2)
 maternity.admissions.per.type <- maternity.admissions.days
 maternity.admissions.per.type$Admission.Type <- rep("Maternity admission", nrow(maternity.admissions.per.type))
@@ -217,7 +217,7 @@ other.admissions.days <- calculate.weekly.counts.from.proportions(other.admissio
 # prepare for join
 # 1)
 other.admissions.per.date <- other.admissions.days
-names(other.admissions.per.date)[names(other.admissions.per.date) == "daily.count"] = "Other Admission"
+names(other.admissions.per.date)[names(other.admissions.per.date) == "daily.count"] = "Other.Admission"
 # 2)
 other.admissions.per.type <- other.admissions.days
 other.admissions.per.type$Admission.Type <- rep("Other admission", nrow(other.admissions.per.type))
@@ -269,15 +269,30 @@ elective.admissions.days <- calculate.weekly.counts.from.proportions(elective.ad
 # prepare for join
 # 1)
 elective.admissions.per.date <- elective.admissions.days
-names(elective.admissions.per.date)[names(elective.admissions.per.date) == "daily.count"] = "Elective Admission"
+names(elective.admissions.per.date)[names(elective.admissions.per.date) == "daily.count"] = "Elective.Admission"
 # 2)
 elective.admissions.per.type <- elective.admissions.days
 elective.admissions.per.type$Admission.Type <- rep("Elective admission", nrow(elective.admissions.per.type))
 
 ### Join all admissions daily projections:
 # 1) Join all data frames on the "date" column
+#maternity.admissions.mini <- select(maternity.admissions.per.date, date, Maternity.Admission)
+#join.emergency.and.mat <- merge(emergency.admissions.per.date, 
+#                                maternity.admissions.mini, 
+#                                by="date")
+#join.other.and.elective <- merge(select(other.admissions.per.date, date, Other.Admission), 
+#                                 select(elective.admissions.per.date, date, Elective.Admisson), 
+#                                 by="date")
 all.admissions.per.date <- emergency.admissions.per.date %>%
-                           inner_join(maternity.admissions.per.date, by="date")
+                           inner_join(maternity.admissions.per.date[,c("date", "Maternity.Admission")], 
+                                      by="date") %>%
+                           inner_join(other.admissions.per.date[,c("date", "Other.Admission")], 
+                                      by="date") %>%
+                           inner_join(elective.admissions.per.date[,c("date", "Elective.Admission")], 
+                                      by="date")
+
+write.csv(all.admissions.per.date, file=admissions.per.date.path, row.names=F)
+
 # 2) merge rows of all data frames
 all.admissions.per.type <- rbind(emergency.admissions.per.type, maternity.admissions.per.type, 
                                  other.admissions.per.type, elective.admissions.per.type)
