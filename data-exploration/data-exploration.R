@@ -66,10 +66,12 @@ plot.ts(arrivals.per.day$Count)
 plot.ts(diff(arrivals.per.day$Count))
 acf(diff(arrivals.per.day$Count))
 
-arrivals.per.week <- group_by(emergency.data, Year.of.Arrival,Week.of.Arrival) %>%
+arrivals.per.week <- mutate(emergency.data, year.week = paste(Year.of.Arrival, Week.of.Arrival, sep = "-")) %>%
                      arrange(Year.of.Arrival, Week.of.Arrival) %>%
+                     group_by(year.week) %>%
                      summarize(count = n())
 plot.ts(arrivals.per.week$count)
+ggplot(data = arrivals.per.week, aes(x=year.week, y=count, group = 1)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
 # Arrivals per weekday
 emergency.data$Arrival.weekdays <- weekdays(emergency.data$Date.of.Arrival, abbreviate = FALSE)
@@ -79,6 +81,17 @@ arrivals.per.weekday <- emergency.data %>%
                         summarize(Count = n()) %>%
                         mutate(weekday.ordered = factor(Arrival.weekdays, levels = weekday.list)) %>%
                         arrange(weekday.ordered)
+arrivals.per.day.w.weekday <- arrivals.per.day %>%
+  mutate(Arrival.weekdays = weekdays(Date.of.Arrival, abbreviate = FALSE)) %>%
+  mutate(weekday.ordered = factor(Arrival.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+mean.arrivals.per.weekday <- arrivals.per.day %>%
+  mutate(Arrival.weekdays = weekdays(Date.of.Arrival, abbreviate = FALSE)) %>%
+  group_by(Arrival.weekdays) %>%
+  summarize(avg = mean(Count)) %>%
+  mutate(weekday.ordered = factor(Arrival.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+ggplot(arrivals.per.day.w.weekday, aes(weekday.ordered, Count)) + geom_boxplot()
 
 arrivals.per.weekdays.and.triage <- emergency.data %>%
                                     group_by(Arrival.weekdays, Triage.Category.Description...Last) %>%
@@ -86,7 +99,7 @@ arrivals.per.weekdays.and.triage <- emergency.data %>%
                                     mutate(weekday.ordered = factor(Arrival.weekdays, levels = weekday.list)) %>%
                                     arrange(weekday.ordered)
 
-ggplot(data=arrivals.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
+ggplot(data=mean.arrivals.per.weekday, aes(x=weekday.ordered, y=avg)) + geom_bar(stat="identity")
 
 ggplot(arrivals.per.weekdays.and.triage, aes(x=weekday.ordered, y=Count)) + geom_col(aes(fill=Triage.Category.Description...Last))
 
@@ -112,6 +125,7 @@ arrivals.per.month <- mutate(emergency.data, month.year = paste(Year.of.Arrival,
   summarize(count = n())
 ggplot(data = arrivals.per.month, aes(x=month.year, y=count, group = 1)) + geom_line()
 plot.ts(diff(arrivals.per.month$count))
+
 
 acf(arrivals.per.month$count)
 # looks like diffing is required
@@ -168,7 +182,8 @@ ggplot(data=departures.per.quarter, aes(x=Departure.quarters, y=Count)) + geom_b
 # they all have coherent dates
 
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(patient.data, H.C.Encrypted,age.num, age.group,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Month.Admission, Year.of.Admission)
+by_stay <- filter(patient.data, is.na(H.C.Encrypted) == 0) %>%
+           group_by(H.C.Encrypted,age.num, age.group,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Month.Admission, Year.of.Admission)
 patient.hospital.stays <- summarize(by_stay,
                               count = n(),
                               distinct.wards = n_distinct(Ward.Name)
@@ -177,17 +192,24 @@ patient.hospital.stays <- summarize(by_stay,
 
 # summary stats
 summary(patient.hospital.stays)
-
+patient.data.without.ids <- filter(patient.data, is.na(H.C.Encrypted))
+patient.data.with.ids <- filter(patient.data, is.na(H.C.Encrypted) == 0)
 
 # readmissions
-patients.total <- group_by(patient.data,H.C.Encrypted) %>%
+patients.total <- group_by(patient.data.with.ids,H.C.Encrypted) %>%
   summarize(records=n())
+patient.count.recurrence <- group_by(patient.hospital.stays, H.C.Encrypted) %>%
+  summarize(stays.count = n())
+ggplot(data=patient.recurrent, aes(patient.count.recurrence$stays.count)) + geom_histogram(binwidth=1)
+
 patient.recurrent <- group_by(patient.hospital.stays, H.C.Encrypted) %>%
                      summarize(stays.count = n()) %>%
                      filter(stays.count > 1)
+ggplot(data=patient.recurrent, aes(patient.recurrent$stays.count)) + geom_histogram(binwidth=1)
 patient.not.recurrent <- group_by(patient.hospital.stays, H.C.Encrypted) %>%
   summarize(stays.count = n()) %>%
   filter(stays.count <= 1)
+ggplot(pa)
 # 28% of patients are readmitted
 # TODO: check how many times
 
@@ -216,21 +238,36 @@ patient.departures.per.day <- group_by(patient.hospital.stays, Date.of.Discharge
                               mutate(Date = Date.of.Discharge)
 # merge arrivals and departures
 patient.arrivals.and.departures <- full_join(patient.arrivals.per.day, patient.departures.per.day)
-# rolling count?
+# rolling count? cumulative sum of arrivals - cumulative sum of departures = count?
+patient.count <- mutate(patient.arrivals.and.departures,
+                        cumulative.arrivals = cumsum(arrival.count),
+                        cumulative.departures = cumsum(departure.count),
+                        count = cumulative.arrivals - cumulative.departures) %>%
+                 select(Date, count)
+patient.count <- tail(patient.count, -14)
+patient.count <- filter(patient.count, is.na(count) == 0)
+ggplot(data = patient.count, aes(x = Date, y = count, group = 1)) + geom_line()
+acf(patient.count$count)
+acf(diff(diff(patient.count$count)))
 
 
 patient.arrivals.per.month <- patient.hospital.stays %>%
   mutate(
     month = months(Date.of.Admission),
-    year = format(Date.of.Admission,"%Y")
+    year = format(Date.of.Admission,"%Y"),
+    year.month = paste(year,month, sep="-")
   ) %>%
-  group_by(month,year) %>%
+  group_by(year.month) %>%
   summarize(count = n())
-ggplot(data=patient.arrivals.per.month, aes(x = month, y = count)) + geom_point()
+ggplot(data=patient.arrivals.per.month, aes(x = year.month, y = count, group=1)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
 # length of stay
 # histogram
-ggplot(data=patient.hospital.stays, aes(patient.hospital.stays$length.of.stay)) + geom_histogram()
+# remove people who don't stay
+patient.hospital.full.stays <- filter(patient.hospital.stays, is.na(length.of.stay) == 0, length.of.stay < 100)
+
+ggplot(data=patient.hospital.stays, aes(patient.hospital.stays$length.of.stay)) + geom_histogram(binwidth = 1) + xlim(0,50)
+ggplot(data=patient.hospital.stays, aes(log(patient.hospital.stays$length.of.stay))) + geom_histogram(binwidth = 1)
 # scatterplot age - sex - not conclusive
 pairs(~length.of.stay+age.num+Sex+Method.of.Admission.Category,data=patient.hospital.stays,
       main="Simple Scatterplot Matrix")
@@ -282,6 +319,10 @@ all.admissions <- full_join(emergency.admissions,maternity.admissions) %>%
   full_join(other.admissions) %>%
   full_join(elective.admissions)
 
+acf(emergency.admissions$em.count)
+acf(maternity.admissions$mat.count)
+acf(other.admissions$other.count)
+acf(elective.admission$elective.count)
 ggplot(data=all.admissions, aes(Date.of.Admission)) +
   geom_line(aes(y=em.count, colour="emergency")) +
   geom_line(aes(y=mat.count, colour="maternity")) +
@@ -432,7 +473,10 @@ ggplot(data=all.admissions.wk, aes(Year.Week, group=1)) +
 
 
 # plot per hour
+ed.per.hour <- group_by(emergency.data, Hour.of.Arrival) %>% summarize(count=n())
+ggplot(ed.per.hour, aes(Hour.of.Arrival, count)) + geom_boxplot()
 ed.per.hour <- group_by(emergency.data, Hour.of.Admission) %>% summarize(count=n())
+ggplot(ed.per.hour, aes(Hour.of.Admission, count)) + geom_boxplot()
 ggplot(data=emergency.data, aes(emergency.data$Hour.of.Admission)) + geom_histogram(binwidth=1)
 ggplot(data=ed.per.hour, aes(x=Hour.of.Admission, y=count)) + geom_bar(stat="identity")
 
@@ -453,6 +497,7 @@ admissions.per.month <- mutate(patient.hospital.stays, month.year = paste(Year.o
   group_by(month.year, Date.of.Admission) %>%
   summarize(count = n())
 ggplot(admissions.per.month, aes(month.year, count)) + geom_boxplot()
+plot.ts(admissions.per.month$count)
 admissions.per.month.year <- mutate(patient.hospital.stays, month.year = paste(Year.of.Admission, Month.Admission, sep="-")) %>%
   group_by(month.year) %>%
   summarize(count = n())
