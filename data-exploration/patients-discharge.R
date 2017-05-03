@@ -70,6 +70,25 @@ plot.ts(patients_daily_discharge$count)
 acf(diff(patients_daily_discharge$count))
 plot.ts(diff(patients_daily_discharge$count))
 
+### Modelling monthly discharge data
+## Normal discharge
+prediction.length <- 20
+
+monthly_normal_disch <- filter(patients_monthly_discharge, Method.of.Discharge == "Normal Discharge")
+monthly_normal_disch <- monthly_normal_disch[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+
+monthly.normal.model <- arima(monthly_normal_disch$count, order = c(1,0,0),
+                              seasonal = list(order = c(1, 1, 0),period = 7))
+monthly.normal.prediction <-predict(monthly.normal.model,n.ahead=prediction.length)
+monthly.normal.admissions.pred <- monthly.normal.prediction$pred[1:prediction.length]
+plot.ts(c(monthly_normal_disch$count,monthly.normal.admissions.pred))
+
 ### Modelling weekly discharge data
 ## Normal discharge
-## Self/Relative Discharge
+weekly_normal_disch <- filter(patients_weekly_discharge, Method.of.Discharge == "Normal Discharge")
+weekly_normal_disch <- weekly_normal_disch[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+
+weekly.normal.model <- arima(weekly_normal_disch$count, order = c(1,0,0))
+weekly.normal.prediction <-predict(weekly.normal.model,n.ahead=prediction.length)
+weekly.normal.admissions.pred <- weekly.normal.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_normal_disch$count, weekly.normal.admissions.pred))
