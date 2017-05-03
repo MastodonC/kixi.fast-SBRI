@@ -24,7 +24,7 @@ patients_discharge <- group_by(patient.data, H.C.Encrypted, age.num, age.group, 
                       filter(Method.of.Discharge %in% c("Normal Discharge", "Self/Relative Disch.", "Transfer-Other Hosp",  
                                                         "Internal Discharge", "Nurse Led Discharge", "Nurse Transfer-O H",
                                                         "Nurse Internal Disc"))
-
+### Exploring patients discharge data
 ## Yearly
 patients_yearly_discharge <- group_by(patients_discharge, Year.of.Discharge, Method.of.Discharge) %>%
                              summarise(count = n())
@@ -39,6 +39,10 @@ patients_monthly_discharge <- patients_discharge %>%
 
 ggplot(data=patients_monthly_discharge, aes(x=paste(Year.of.Discharge, Month.of.Discharge, sep="-"), y=count, 
                                             group=Method.of.Discharge)) + geom_line(aes(color=Method.of.Discharge)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+acf(patients_monthly_discharge$count)
+plot.ts(patients_monthly_discharge$count)
+acf(diff(patients_monthly_discharge$count))
+plot.ts(diff(patients_monthly_discharge$count))
 
 ## Weekly
 patients_weekly_discharge <- patients_discharge %>%
@@ -48,3 +52,24 @@ patients_weekly_discharge <- patients_discharge %>%
 
 ggplot(data=patients_weekly_discharge, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, 
                                            group=Method.of.Discharge)) + geom_line(aes(color=Method.of.Discharge)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+acf(patients_weekly_discharge$count)
+plot.ts(patients_weekly_discharge$count)
+acf(diff(patients_weekly_discharge$count))
+plot.ts(diff(patients_weekly_discharge$count))
+
+## Daily
+patients_daily_discharge <- patients_discharge %>%
+                            group_by(Date.of.Discharge, Method.of.Discharge) %>%
+                            summarise(count = n())
+
+ggplot(data=patients_daily_discharge, aes(x=Date.of.Discharge, y=count, group=Method.of.Discharge)) + geom_line(aes(color=Method.of.Discharge)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+acf(patients_daily_discharge$count)
+plot.ts(patients_daily_discharge$count)
+acf(diff(patients_daily_discharge$count))
+plot.ts(diff(patients_daily_discharge$count))
+
+### Modelling weekly discharge data
+## Normal discharge
+## Self/Relative Discharge
