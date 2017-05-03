@@ -26,15 +26,25 @@ patients_discharge <- group_by(patient.data, H.C.Encrypted, age.num, age.group, 
                                                         "Nurse Internal Disc"))
 
 ## Yearly
-patients_yearly_discharge <- group_by(patients_discharge, Year.of.Discharge) %>%
+patients_yearly_discharge <- group_by(patients_discharge, Year.of.Discharge, Method.of.Discharge) %>%
                              summarise(count = n())
+
+ggplot(data=patients_yearly_discharge, aes(x=Year.of.Discharge, y=count)) + geom_col(aes(fill=Method.of.Discharge))
                              
 ## Monthly
-patients_monthly_discharge <- group_by(patients_discharge, Year.of.Discharge, Month.of.Discharge) %>%
+patients_monthly_discharge <- patients_discharge %>%
+                              group_by(Year.of.Discharge, Month.of.Discharge, Method.of.Discharge) %>%
                               arrange(Year.of.Discharge, Month.of.Discharge) %>%
                               summarise(count = n())
+
+ggplot(data=patients_monthly_discharge, aes(x=paste(Year.of.Discharge, Month.of.Discharge, sep="-"), y=count, 
+                                            group=Method.of.Discharge)) + geom_line(aes(color=Method.of.Discharge)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 ## Weekly
 patients_weekly_discharge <- patients_discharge %>%
-                             group_by(Year.of.Discharge, Month.of.Discharge, Week.of.Discharge) %>%
-                             arrange(Year.of.Discharge, Month.of.Discharge, Week.of.Discharge) %>%
+                             group_by(Year.of.Discharge, Week.of.Discharge, Method.of.Discharge) %>%
+                             arrange(Year.of.Discharge, Week.of.Discharge) %>%
                              summarise(count = n())
+
+ggplot(data=patients_weekly_discharge, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, 
+                                           group=Method.of.Discharge)) + geom_line(aes(color=Method.of.Discharge)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
