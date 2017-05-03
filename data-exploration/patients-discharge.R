@@ -20,11 +20,21 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
   )
 
 patients_discharge <- group_by(patient.data, H.C.Encrypted, age.num, age.group, Sex, Year.of.Discharge,
-                               Month.of.Discharge, Week.of.Discharge, Date.of.Discharge, Method.of.Discharge)
+                               Month.of.Discharge, Week.of.Discharge, Date.of.Discharge, Method.of.Discharge) %>%
+                      filter(Method.of.Discharge %in% c("Normal Discharge", "Self/Relative Disch.", "Transfer-Other Hosp",  
+                                                        "Internal Discharge", "Nurse Led Discharge", "Nurse Transfer-O H",
+                                                        "Nurse Internal Disc"))
 
 ## Yearly
-patients_yearly_discharge <- summarise(group_by(patients_discharge, Year.of.Discharge), count = n())
+patients_yearly_discharge <- group_by(patients_discharge, Year.of.Discharge) %>%
+                             summarise(count = n())
+                             
 ## Monthly
-patients_monthly_discharge <- summarise(group_by(patients_discharge, Year.of.Discharge, Month.of.Discharge), count = n())
+patients_monthly_discharge <- group_by(patients_discharge, Year.of.Discharge, Month.of.Discharge) %>%
+                              arrange(Year.of.Discharge, Month.of.Discharge) %>%
+                              summarise(count = n())
 ## Weekly
-patients_weekly_discharge <- summarise(group_by(patients_discharge, Year.of.Discharge, Month.of.Discharge, Week.of.Discharge), count = n())
+patients_weekly_discharge <- patients_discharge %>%
+                             group_by(Year.of.Discharge, Month.of.Discharge, Week.of.Discharge) %>%
+                             arrange(Year.of.Discharge, Month.of.Discharge, Week.of.Discharge) %>%
+                             summarise(count = n())
