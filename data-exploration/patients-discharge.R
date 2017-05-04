@@ -92,3 +92,11 @@ weekly.normal.model <- arima(weekly_normal_disch$count, order = c(1,0,0))
 weekly.normal.prediction <-predict(weekly.normal.model,n.ahead=prediction.length)
 weekly.normal.admissions.pred <- weekly.normal.prediction$pred[1:prediction.length]
 plot.ts(c(weekly_normal_disch$count, weekly.normal.admissions.pred))
+
+# see if the last record of hospital stay is a discharge
+# Mode.of.Exit.from.Ward == "DSC"
+# (there are 130 patients who didn't leave, so that would be the expected number)
+last.record.patient.data <- group_by(patient.data, H.C.Encrypted,DateTime.of.Admission) %>%
+                            arrange(Ward.Episode.Number) %>%
+                            filter(row_number()==n()) %>%
+                            filter(Mode.of.Exit.from.Ward != "DSC")
