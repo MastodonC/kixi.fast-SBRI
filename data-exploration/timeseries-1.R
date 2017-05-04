@@ -6,6 +6,9 @@ require(lubridate)
 # for our own data source paths
 source("paths.R")
 
+specialities_match <- read.csv(resource_pool.specialties.path, stringsAsFactors = F, 
+                               na.strings=c("","NA"))
+
 remove_first_and_last <- function(dataframe) {
   head(dataframe[-1,], -1) # remove first and last row
 }

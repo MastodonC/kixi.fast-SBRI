@@ -4,8 +4,14 @@ require(ggplot2)
 require(lubridate)
 source("paths.R")
 
+remove_first_and_last <- function(dataframe) {
+  head(dataframe[-1,], -1) # Modify to remove the first/last week or month
+}
+
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
+    Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
+    DateTime.of.Admission = as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
     Year.of.Discharge = format(Date.of.Discharge, "%Y"),
     Month.of.Discharge = format(Date.of.Discharge, "%m"),
@@ -20,10 +26,22 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
   )
 
 patients_discharge <- group_by(patient.data, H.C.Encrypted, age.num, age.group, Sex, Year.of.Discharge,
-                               Month.of.Discharge, Week.of.Discharge, Date.of.Discharge, Method.of.Discharge) %>%
-                      filter(Method.of.Discharge %in% c("Normal Discharge", "Self/Relative Disch.", "Transfer-Other Hosp",  
-                                                        "Internal Discharge", "Nurse Led Discharge", "Nurse Transfer-O H",
-                                                        "Nurse Internal Disc"))
+                               Month.of.Discharge, Week.of.Discharge, Date.of.Discharge, Method.of.Discharge,
+                               Specialty.on.Exit.of.Ward) 
+# %>%
+#                       filter(Method.of.Discharge %in% c("Normal Discharge", "Self/Relative Disch.", "Transfer-Other Hosp",  
+#                                                         "Internal Discharge", "Nurse Led Discharge", "Nurse Transfer-O H",
+#                                                         "Nurse Internal Disc"))
+
+by_stay <- group_by(patient.data, H.C.Encrypted, age.num, age.group, Sex, Date.of.Admission, 
+                    DateTime.of.Admission, Date.of.Discharge, Year.of.Discharge, Month.of.Discharge,
+                    Week.of.Discharge, Time.of.Discharge, Hour.of.Discharge, Method.of.Discharge)
+
+patient.hospital.stays <- summarize(by_stay,
+                                    count = n(),
+                                    distinct.wards = n_distinct(Ward.Name)) %>%
+                          mutate(length.of.stay = as.integer(Date.of.Discharge - Date.of.Admission))
+
 ### Exploring patients discharge data
 ## Yearly
 patients_yearly_discharge <- group_by(patients_discharge, Year.of.Discharge, Method.of.Discharge) %>%
@@ -40,6 +58,7 @@ patients_monthly_discharge <- patients_discharge %>%
 ggplot(data=patients_monthly_discharge, aes(x=paste(Year.of.Discharge, Month.of.Discharge, sep="-"), y=count, 
                                             group=Method.of.Discharge)) + geom_line(aes(color=Method.of.Discharge)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 acf(patients_monthly_discharge$count)
+pacf(patients_monthly_discharge$count)
 plot.ts(patients_monthly_discharge$count)
 acf(diff(patients_monthly_discharge$count))
 plot.ts(diff(patients_monthly_discharge$count))
@@ -77,8 +96,7 @@ prediction.length <- 20
 monthly_normal_disch <- filter(patients_monthly_discharge, Method.of.Discharge == "Normal Discharge")
 monthly_normal_disch <- monthly_normal_disch[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
 
-monthly.normal.model <- arima(monthly_normal_disch$count, order = c(1,0,0),
-                              seasonal = list(order = c(1, 1, 0),period = 7))
+monthly.normal.model <- arima(monthly_normal_disch$count, order = c(1,0,0))
 monthly.normal.prediction <-predict(monthly.normal.model,n.ahead=prediction.length)
 monthly.normal.admissions.pred <- monthly.normal.prediction$pred[1:prediction.length]
 plot.ts(c(monthly_normal_disch$count,monthly.normal.admissions.pred))
@@ -100,3 +118,27 @@ last.record.patient.data <- group_by(patient.data, H.C.Encrypted,DateTime.of.Adm
                             arrange(Ward.Episode.Number) %>%
                             filter(row_number()==n()) %>%
                             filter(Mode.of.Exit.from.Ward != "DSC")
+
+## Look at specialities and resource pools
+specialities_match <- read.csv(resource_pool.specialties.path, stringsAsFactors = F, 
+                               na.strings=c("","NA"))
+
+monthly_discharge_by_speciality <- patients_discharge %>%
+                                   group_by(Year.of.Discharge, Month.of.Discharge, 
+                                            Specialty.on.Exit.of.Ward) %>%
+                                   arrange(Year.of.Discharge, Month.of.Discharge) %>%
+                                   summarise(count = n())
+
+monthly_discharge_by_resource_pool <- merge(monthly_discharge_by_speciality, specialities_match,
+                                            by.x = "Specialty.on.Exit.of.Ward",
+                                            by.y = "PAS.name")
+
+weekly_discharge_by_speciality <- patients_discharge %>%
+                                  group_by(Year.of.Discharge, Week.of.Discharge, 
+                                  Specialty.on.Exit.of.Ward) %>%
+                                  arrange(Year.of.Discharge, Week.of.Discharge) %>%
+                                  summarise(count = n())
+
+weekly_discharge_by_resource_pool <- merge(weekly_discharge_by_speciality, specialities_match,
+                                           by.x = "Specialty.on.Exit.of.Ward",
+                                           by.y = "PAS.name")
