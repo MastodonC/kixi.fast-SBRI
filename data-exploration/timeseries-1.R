@@ -49,20 +49,45 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
                                  labels=c('0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80-90', 'Over 90')))
   )
 
+patients.first.admission <- patient.data %>%
+                            group_by(H.C.Encrypted, DateTime.of.Admission) %>%
+                            arrange(Ward.Episode.Number) %>%
+                            filter(row_number()==1)
+
 # group by hospital stay (patient, same day admitted, same day discharged)
-by_stay <- group_by(patient.data, H.C.Encrypted,age.num, age.group,Sex,Date.of.Admission,Time.of.Admission,DateTime.of.Admission, Date.of.Discharge,Method.of.Admission.Category,Method.of.Discharge, Year.Week, Day.Admission, Week.of.Admission, Month.Admission, Year.of.Admission)
+by_stay <- group_by(patient.data, H.C.Encrypted, age.num, age.group, Sex, Date.of.Admission,
+                    Time.of.Admission, DateTime.of.Admission, Date.of.Discharge,
+                    Method.of.Admission.Category,Method.of.Discharge, Year.Week, 
+                    Day.Admission, Week.of.Admission, Month.Admission, Year.of.Admission)
+
 patient.hospital.stays <- summarize(by_stay,
                                     count = n(),
                                     distinct.wards = n_distinct(Ward.Name)) %>%
-  mutate(length.of.stay = as.integer(Date.of.Discharge - Date.of.Admission))
+                          mutate(length.of.stay = as.integer(Date.of.Discharge - Date.of.Admission))
 
+patient.hospital.stays.with.res <- merge(patient.hospital.stays, specialities_match,
+                                          by.x = "Specialty.Description.on.Ward.Entry",
+                                          by.y = "PAS.name")
+
+## DEBUGGING: 
+diff_df <- anti_join(patient.hospital.stays, patients.first.admission)
 
 ### Emergency admissions prediction
 ## Weeks
+emergency.admissions.unscheduled.wk <- filter(patient.hospital.stays.with.res, 
+                                              Method.of.Admission.Category == "Emergency Admission"#
+                                              && Resource.Pool.name == "Unscheduled Care") %>%
+                                       group_by(Year.of.Admission, Week.of.Admission) %>%
+                                       arrange(Year.of.Admission, Week.of.Admission) %>%
+                                       summarise(weekly.count=n())
+
+# Remove last row (huge drop)
+emergency.admissions.unscheduled.wk <- head(emergency.admissions.unscheduled.wk, -1)
+
 emergency.admissions.wk <- filter(patient.hospital.stays, Method.of.Admission.Category == "Emergency Admission") %>%
-  group_by(Year.of.Admission, Week.of.Admission) %>%
-  arrange(Year.of.Admission, Week.of.Admission) %>%
-  summarise(weekly.count=n())
+                           group_by(Year.of.Admission, Week.of.Admission) %>%
+                           arrange(Year.of.Admission, Week.of.Admission) %>%
+                           summarise(weekly.count=n())
 
 emergency.admissions.wk <- remove_first_and_last(emergency.admissions.wk)
 
@@ -98,6 +123,7 @@ total_admissions <- nrow(patient.hospital.stays)
 
 weekday.admissions.proportions <- admissions.per.weekday %>%
                                   mutate(proportions = Count / total_admissions)
+
 ggplot(data=admissions.per.weekday, aes(x=weekday.ordered, y=Count)) + geom_bar(stat="identity")
 
 
