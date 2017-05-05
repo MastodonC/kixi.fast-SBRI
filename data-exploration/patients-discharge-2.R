@@ -25,7 +25,24 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
                                  labels=c('0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80-90', 'Over 90')))
   )
 
+# Last discharge for each stay = patient exit
 last_patients_discharge <- patient.data %>%
-  group_by(H.C.Encrypted, DateTime.of.Admission) %>%
-  arrange(Ward.Episode.Number) %>%
-  filter(row_number()==n() & is.na(Date.of.Discharge)==0)
+                           group_by(H.C.Encrypted, DateTime.of.Admission) %>%
+                           arrange(Ward.Episode.Number) %>%
+                           filter(row_number()==n() & is.na(Date.of.Discharge)==0)
+
+# Try matching specialities
+specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactors = F, 
+                               na.strings=c("","NA"))
+
+test_merge <- merge(last_patients_discharge, specialities_match, by.x="Specialty.on.Exit.of.Ward",
+                    by.y="PAS.name")
+
+disch_test <- last_patients_discharge[,c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time",
+                                         "Date.of.Discharge.with.Time", "Method.of.Discharge", 
+                                         "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward")]
+merge_test <- test_merge[,c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time",
+                            "Date.of.Discharge.with.Time", "Method.of.Discharge", 
+                            "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward")]
+
+merge_diff <- anti_join(disch_test, merge_test)
