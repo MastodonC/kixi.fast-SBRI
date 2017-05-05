@@ -67,6 +67,7 @@ patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Metho
                                                                              "Self/Relative Disch.")
                                                     | patients_exit_hospital$Destination.Discharge.Description %in% c("HOME / USUAL ADDRESS", 
                                                                                                "NURSING HOME",
+                                                                                               "NURSING HOME        ",
                                                                                                "RELATIVE'S HOME",
                                                                                                "PRIVATE RESID HOME",
                                                                                                "RESIDENTIAL HOME",
@@ -86,3 +87,42 @@ patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Metho
                                                     ~ "Deceased"
   
 )
+
+# what records have `discharge_group`==NA
+disch_na <- filter(patients_exit_hospital, is.na(discharge_group))
+
+## Data Exploration
+## Yearly
+patients_yearly_exit <- group_by(patients_exit_hospital, Year.of.Discharge, discharge_group) %>%
+                                 summarise(count = n())
+
+ggplot(data=patients_yearly_exit, aes(x=Year.of.Discharge, y=count)) + geom_col(aes(fill=discharge_group))
+
+## Monthly
+patients_monthly_exit <- patients_exit_hospital %>%
+                         group_by(Year.of.Discharge, Month.of.Discharge, discharge_group) %>%
+                         arrange(Year.of.Discharge, Month.of.Discharge) %>%
+                         summarise(count = n())
+
+ggplot(data=patients_monthly_exit, aes(x=paste(Year.of.Discharge, Month.of.Discharge, sep="-"), y=count, 
+                                            group=discharge_group)) + geom_line(aes(color=discharge_group)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+acf(patients_monthly_exit$count)
+plot.ts(patients_monthly_exit$count)
+acf(diff(patients_monthly_exit$count))
+plot.ts(diff(patients_monthly_exit$count))
+# -> seasonality? 3 months cycle?
+
+## Weekly
+patients_weekly_exit <- patients_exit_hospital %>%
+                        group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
+                        arrange(Year.of.Discharge, Week.of.Discharge) %>%
+                        summarise(count = n())
+
+ggplot(data=patients_weekly_exit, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, 
+                                           group=discharge_group)) + geom_line(aes(color=discharge_group)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+acf(patients_weekly_exit$count)
+plot.ts(patients_weekly_exit$count)
+acf(diff(patients_weekly_exit$count))
+plot.ts(diff(patients_weekly_exit$count))
+# -> seasonality? 3 months cycle?
