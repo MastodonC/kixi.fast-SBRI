@@ -26,23 +26,23 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
   )
 
 # Last discharge for each stay = patient exit
-last_patients_discharge <- patient.data %>%
-                           group_by(H.C.Encrypted, DateTime.of.Admission) %>%
-                           arrange(Ward.Episode.Number) %>%
-                           filter(row_number()==n() & is.na(Date.of.Discharge)==0)
+patients_exit_hospital <- patient.data %>%
+                          group_by(H.C.Encrypted, DateTime.of.Admission) %>%
+                          arrange(Ward.Episode.Number) %>%
+                          filter(row_number()==n() & is.na(Date.of.Discharge)==0)
 
-# Try matching specialities
+# Try matching specialities -> all specialities match a resource pool =)
 specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactors = F, 
                                na.strings=c("","NA"))
 
-test_merge <- merge(last_patients_discharge, specialities_match, by.x="Specialty.on.Exit.of.Ward",
-                    by.y="PAS.name")
+exits_per_speciality <- merge(patients_exit_hospital, specialities_match, 
+                              by.x="Specialty.on.Exit.of.Ward", by.y="PAS.name")
 
-disch_test <- last_patients_discharge[,c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time",
-                                         "Date.of.Discharge.with.Time", "Method.of.Discharge", 
-                                         "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward")]
-merge_test <- test_merge[,c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time",
-                            "Date.of.Discharge.with.Time", "Method.of.Discharge", 
-                            "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward")]
+# For the exit types I don't expect internal transfers, but still there are some
+exit_types <- unique(patients_exit_hospital$Method.of.Discharge)
 
-merge_diff <- anti_join(disch_test, merge_test)
+exits_transfers <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Nurse Internal Disc",
+                                                                             "Internal Discharge"))
+# those are 821 records out of 67,659 records and they have a Ward.Episode.Number==1!
+patient1 <- filter(patients_exit_hospital, H.C.Encrypted == "15FGJQR8CH") # patient actually sent home
+patient2 <- filter(patients_exit_hospital, H.C.Encrypted == "15WB9QA4OH")
