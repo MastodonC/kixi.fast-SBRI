@@ -6,6 +6,11 @@ require(lubridate)
 # for our own data source paths
 source("paths.R")
 
+all_na_to_0 <- function(d) {
+  d[is.na(d)] <- 0
+  d
+}
+
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
@@ -35,6 +40,7 @@ patient.admissions <- left_join(patient.admissions, resource_pool.specialties, b
 patients.per.day <- tally(group_by(patient.admissions, Date.of.Admission, Resource.Pool.name)) %>%
                     dcast(Date.of.Admission ~ Resource.Pool.name) %>%
                     setNames(c("Date.of.Admission","elderly","medical","palliative","surgical","unscheduled","women.child"))
+patients.per.day <- all_na_to_0(patients.per.day)
 
 ggplot(patients.per.day, aes(Date.of.Admission)) + 
   geom_line(aes(y = patients.per.day$elderly, colour = "Elderly Care")) +
@@ -45,10 +51,12 @@ ggplot(patients.per.day, aes(Date.of.Admission)) +
   geom_line(aes(y = patients.per.day$women.child, colour = "Women and Child"))
 
 acf(patients.per.day$elderly)
+acf(diff(patients.per.day$elderly)) # no cycles
 
 patients.per.week <- tally(group_by(patient.admissions, Year.Week, Resource.Pool.name)) %>%
   dcast(Year.Week ~ Resource.Pool.name) %>%
   setNames(c("Year.Week","elderly","medical","palliative","surgical","unscheduled","women.child"))
+patients.per.week <- all_na_to_0(patients.per.week)
 
 ggplot(patients.per.week, aes(Year.Week)) + 
   geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1)) +
