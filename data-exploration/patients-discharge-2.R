@@ -46,3 +46,43 @@ exits_transfers <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Nu
 # those are 821 records out of 67,659 records and they have a Ward.Episode.Number==1!
 patient1 <- filter(patients_exit_hospital, H.C.Encrypted == "15FGJQR8CH") # patient actually sent home
 patient2 <- filter(patients_exit_hospital, H.C.Encrypted == "15WB9QA4OH")
+
+# Does `Method.of.Discharge` generally match `Destination.Discharge.Description`?
+disch_method_and_destination <- patients_exit_hospital[,c("H.C.Encrypted", "Method.of.Discharge", 
+                                                          "Destination.Discharge.Description",
+                                                          "DateTime.of.Admission", "Date.of.Discharge.with.Time")]
+# 14 different types of destinations after discharge
+disch_destinations <- unique(disch_method_and_destination$Destination.Discharge.Description)
+
+# try to filter out the "Normal Discharge" group
+normal_disch <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Normal Discharge", 
+                                                                          "Nurse Led Discharge",
+                                                                          "Self/Relative Disch.")
+                       | Destination.Discharge.Description %in% c("HOME / USUAL ADDRESS", "NURSING HOME",
+                                                                  "RELATIVE'S HOME"))
+
+# Add exit group for all records
+patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Method.of.Discharge %in% c("Normal Discharge", 
+                                                                             "Nurse Led Discharge",
+                                                                             "Self/Relative Disch.")
+                                                    | patients_exit_hospital$Destination.Discharge.Description %in% c("HOME / USUAL ADDRESS", 
+                                                                                               "NURSING HOME",
+                                                                                               "RELATIVE'S HOME",
+                                                                                               "PRIVATE RESID HOME",
+                                                                                               "RESIDENTIAL HOME",
+                                                                                               "STATUTORY RESID HOME")
+                                                    ~ "Normal Discharge",
+                                                    
+                                                    patients_exit_hospital$Method.of.Discharge %in% c("Transfer-Other Hosp", "Nurse Transfer-O H")
+                                                    | patients_exit_hospital$Destination.Discharge.Description %in% c("GREAT BRITAIN HOSP", 
+                                                                                               "NHS HOSPITAL-GENERAL",
+                                                                                               "NON-UK HOSPITAL",
+                                                                                               "NHS HOSP- MENTAL ILL",
+                                                                                               "NHS HOSP. -MATERNITY")
+                                                    ~ "External Transfer",
+                                                    
+                                                    patients_exit_hospital$Method.of.Discharge %in% c("Died-Post Mortem", "Died-No Post Mortem", 
+                                                                                                      "Stillbirth")
+                                                    ~ "Deceased"
+  
+)
