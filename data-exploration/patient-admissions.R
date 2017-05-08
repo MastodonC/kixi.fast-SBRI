@@ -16,6 +16,12 @@ remove_first_and_last_n <- function(dataframe, n) {
   head(dataframe[-n,], -n) # remove first and last row
 }
 
+add_column_with_value_to <- function(dataframe, colname, value) {
+  column <- rep(value, nrow(dataframe))
+  dataframe[ , colname] <- column
+  dataframe
+}
+
 prediction.length <- 20
 
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
@@ -179,6 +185,18 @@ elective.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep
                                            Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                            Year.of.Admission = as.character(Year.of.Admission))
 elective.admissions <- bind_rows(elective.admissions.wk, elective.admissions.prediction.data)
+
+# sum all the predictions and find factor to make them equal to total
+all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Method.of.Admission", "emergency"),
+                            add_column_with_value_to(maternity.admissions, "Method.of.Admission", "maternity")) %>%
+  bind_rows(add_column_with_value_to(other.admissions, "Method.of.Admission", "other")) %>%
+  bind_rows(add_column_with_value_to(elective.admissions, "Method.of.Admission", "elective")) %>%
+  bind_rows(add_column_with_value_to(total.admissions, "Method.of.Admission", "total"))  %>%
+  dcast(Year.of.Admission + Week.of.Admission ~ Method.of.Admission, value.var = c("weekly.count")) %>%
+  mutate(total.of.parts = emergency + maternity + other + elective,
+         ratio.to.total = total.of.parts/total)
+
+
 
 # check resource pool per type of admission
 # emergency admissions
