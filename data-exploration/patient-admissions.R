@@ -107,6 +107,16 @@ total.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,pre
                          Year.of.Admission = as.character(Year.of.Admission))
 total.admissions <- bind_rows(total.patients.per.week, total.prediction.data)
 
+# emergency admissions
+emergency.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Emergency Admission") %>%
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n()) %>%
+  remove_first_and_last_n(1)
+
+emergency.admissions.model <- arima(emergency.admissions.wk$weekly.count, order = c(1,1,1))
+emergency.admissions.forecast <- forecast(emergency.admissions.model, level = c(95), h = prediction.length)
+autoplot(emergency.admissions.forecast)
 
 # check resource pool per type of admission
 # emergency admissions
