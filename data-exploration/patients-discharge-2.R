@@ -66,7 +66,7 @@ disch_method_and_destination <- patients_exit_hospital[,c("H.C.Encrypted", "Meth
 # 14 different types of destinations after discharge
 disch_destinations <- unique(disch_method_and_destination$Destination.Discharge.Description)
 
-# Add exit group for all records
+# Add a discharge group column
 patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Method.of.Discharge %in% c("Died-Post Mortem", "Died-No Post Mortem", 
                                                                                                       "Stillbirth")
                                                     | patients_exit_hospital$Specialty.on.Exit.of.Ward == "Palliative Medicine (C)"
@@ -210,19 +210,24 @@ disch_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.leng
                     weekly_count = as.integer(weekly_count),
                     Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                     Year.of.Discharge = as.character(Year.of.Discharge))
-# join historical and predictions df
-last_discharge_pred <- bind_rows(weekly_exits,disch_pred)
 # using proportions to calculate counts for days of week
-discharges_days <- calculate.weekly.disch.from.proportions(last_discharge_pred, 
+discharges_days <- calculate.weekly.disch.from.proportions(disch_pred, 
                                                            weekday_discharge_proportions)
 disch_per_day <- discharges_days[,c("Year.of.Discharge", "Week.of.Discharge", 
                                     "date", "daily_count")]
-ggplot(data=disch_per_day, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+# join historical and predictions df
+daily_hist_disch <- patients_exit_hospital %>%
+                    group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                    arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                    summarise(daily_count = n()) %>%
+                    rename(date = Date.of.Discharge)
+last_discharge_pred <- bind_rows(daily_hist_disch,disch_per_day)
+ggplot(data=last_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 # Looking at discharge groups
 patients_weekly_exit <- patients_exit_hospital %>%
                         group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
                         arrange(Year.of.Discharge, Week.of.Discharge) %>%
-                        summarise(count = n())
+                        summarise(weekly_count = n())
 
 ggplot(data=patients_weekly_exit, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, 
                                            group=discharge_group)) + geom_line(aes(color=discharge_group)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
@@ -234,12 +239,35 @@ acf(weekly_normal$count)
 plot.ts(weekly_normal$count)
 acf(diff(weekly_normal$count))
 plot.ts(diff(weekly_normal$count))
-weekly_normal <- weekly_normal[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+weekly_normal <- weekly_normal[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
 # arima
-weekly.normal.model <- arima(weekly_normal$count, order = c(1,0,0))
+weekly.normal.model <- arima(weekly_normal$weekly_count, order = c(1,0,0))
 weekly.normal.prediction <-predict(weekly.normal.model,n.ahead=prediction.length)
 weekly.normal.admissions.pred <- weekly.normal.prediction$pred[1:prediction.length]
-plot.ts(c(weekly_normal$count, weekly.normal.admissions.pred))
+plot.ts(c(weekly_normal$weekly_count, weekly.normal.admissions.pred))
+# create df
+disch_normal_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                               Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                               weekly_count = weekly.normal.admissions.pred),
+                    weekly_count = as.integer(weekly_count),
+                    Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                    Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+normal_discharges_days <- calculate.weekly.disch.from.proportions(disch_normal_pred, 
+                                                                  weekday_discharge_proportions)
+normal_disch_per_day <- normal_discharges_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                        "date", "daily_count")]
+# join historical and predictions df
+daily_hist_normal_disch <- patients_exit_hospital %>%
+                    filter(discharge_group == "Normal Discharge") %>%
+                    group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                    arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                    summarise(daily_count = n()) %>%
+                    rename(date = Date.of.Discharge)
+last_normal_discharge_pred <- bind_rows(daily_hist_normal_disch,
+                                        normal_disch_per_day)
+ggplot(data=last_normal_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 # Weekly External Transfer Discharge group
 weekly_transfer <- filter(patients_weekly_exit, discharge_group == "External Transfer")
 # acf
@@ -247,12 +275,34 @@ acf(weekly_transfer$count)
 plot.ts(weekly_transfer$count)
 acf(diff(weekly_transfer$count))
 plot.ts(diff(weekly_transfer$count))
-weekly_transfer <- weekly_transfer[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+weekly_transfer <- weekly_transfer[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
 # arima
-weekly.transfer.model <- arima(weekly_transfer$count, order = c(1,0,0))
+weekly.transfer.model <- arima(weekly_transfer$weekly_count, order = c(1,0,0))
 weekly.transfer.prediction <-predict(weekly.transfer.model,n.ahead=prediction.length)
 weekly.transfer.admissions.pred <- weekly.transfer.prediction$pred[1:prediction.length]
-plot.ts(c(weekly_transfer$count, weekly.transfer.admissions.pred))
+plot.ts(c(weekly_transfer$weekly_count, weekly.transfer.admissions.pred))
+# create df
+disch_transfer_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                      Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                      weekly_count = weekly.transfer.admissions.pred),
+                             weekly_count = as.integer(weekly_count),
+                             Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                             Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+transfer_discharges_days <- calculate.weekly.disch.from.proportions(disch_transfer_pred, 
+                                                                    weekday_discharge_proportions)
+transfer_disch_per_day <- transfer_discharges_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                                   "date", "daily_count")]
+# join historical and predictions df
+daily_hist_transfer_disch <- patients_exit_hospital %>%
+                             filter(discharge_group == "External Transfer") %>%
+                             group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                             arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                             summarise(daily_count = n()) %>%
+                             rename(date = Date.of.Discharge)
+last_transfer_discharge_pred <- bind_rows(daily_hist_transfer_disch,transfer_disch_per_day)
+ggplot(data=last_transfer_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 # Weekly Deaths or Palliative Care Discharge group
 weekly_palliative <- filter(patients_weekly_exit, discharge_group == "Palliative/Deceased")
 # acf
@@ -260,9 +310,44 @@ acf(weekly_palliative$count)
 plot.ts(weekly_palliative$count)
 acf(diff(weekly_palliative$count))
 plot.ts(diff(weekly_palliative$count))
-weekly_palliative <- weekly_palliative[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+weekly_palliative <- weekly_palliative[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
 # arima
-weekly.palliative.model <- arima(weekly_palliative$count, order = c(1,0,0))
+weekly.palliative.model <- arima(weekly_palliative$weekly_count, order = c(1,0,0))
 weekly.palliative.prediction <-predict(weekly.palliative.model,n.ahead=prediction.length)
 weekly.palliative.admissions.pred <- weekly.palliative.prediction$pred[1:prediction.length]
-plot.ts(c(weekly_palliative$count, weekly.palliative.admissions.pred))
+plot.ts(c(weekly_palliative$weekly_count, weekly.palliative.admissions.pred))
+# create df
+disch_palliative_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                      Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                      weekly_count = weekly.palliative.admissions.pred),
+                                weekly_count = as.integer(weekly_count),
+                                Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                                Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+palliative_discharges_days <- calculate.weekly.disch.from.proportions(disch_palliative_pred, 
+                                                                      weekday_discharge_proportions)
+palliative_disch_per_day <- palliative_discharges_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                                       "date", "daily_count")]
+# join historical and predictions df
+daily_hist_palliative_disch <- patients_exit_hospital %>%
+                               filter(discharge_group == "Palliative/Deceased") %>%
+                               group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                               arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                               summarise(daily_count = n()) %>%
+                               rename(date = Date.of.Discharge)
+last_palliative_discharge_pred <- bind_rows(daily_hist_palliative_disch,
+                                            palliative_disch_per_day)
+ggplot(data=last_palliative_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+### Data reconciliation to match totals
+## Join all groups of discharge and total discharges together in one df
+all_discharges_pred <- rename(last_discharge_pred, all_discharges = daily_count) %>%
+                       full_join(rename(last_normal_discharge_pred, normal_discharge = daily_count), 
+                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"), na.fill=0) %>%
+                       full_join(rename(last_transfer_discharge_pred, external_transfer = daily_count), 
+                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"), na.fill=0) %>%
+                       full_join(rename(last_palliative_discharge_pred, palliative_deceased = daily_count), 
+                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"), na.fill=0)
+
+#all_discharges_pred$total <- apply(all_discharges_pred, c("normal_discharge", "external_transfer", 
+#                                                         "palliative_deceased"), sum)
