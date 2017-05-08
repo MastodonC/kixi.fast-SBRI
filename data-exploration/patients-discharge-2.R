@@ -91,7 +91,7 @@ disch_na <- filter(patients_exit_hospital, is.na(discharge_group))
 
 patients_exit_hospital <- filter(patients_exit_hospital, !is.na(discharge_group))
 
-## Data Exploration + Arima Model
+### Data Exploration + Arima Model
 prediction.length <- 20
 ## Yearly
 patients_yearly_exit <- group_by(patients_exit_hospital, Year.of.Discharge, discharge_group) %>%
@@ -134,6 +134,35 @@ plot.ts(diff(monthly_palliative$count))
 
 
 ## Weekly
+# All discharge types
+weekly_exits <- patients_exit_hospital %>%
+                group_by(Year.of.Discharge, Week.of.Discharge) %>%
+                arrange(Year.of.Discharge, Week.of.Discharge) %>%
+                summarise(count = n())
+
+ggplot(data=weekly_exits, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+# acf
+acf(weekly_exits$count)
+plot.ts(weekly_exits$count)
+acf(diff(weekly_exits$count))
+plot.ts(diff(weekly_exits$count))
+# arima
+weekly_exits_model <- arima(weekly_exits$count, order = c(1,0,0))
+weekly_exits_prediction <-predict(weekly_exits_model,n.ahead=prediction.length)
+weekly_exits_pred <- weekly_exits_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_exits$count, weekly_exits_pred))
+# create predictions df
+last.year <- max(weekly_exits$Year.of.Discharge)
+last.week <- as.integer(last(weekly_exits$Week.of.Discharge))
+disch_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                 Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                 count = weekly_exits_pred),
+                      count = as.integer(count),
+                      Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                      Year.of.Discharge = as.character(Year.of.Discharge))
+# join historical and predictions df
+last_discharge_pred <- bind_rows(weekly_exits,disch_pred)
+# Looking at discharge groups
 patients_weekly_exit <- patients_exit_hospital %>%
                         group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
                         arrange(Year.of.Discharge, Week.of.Discharge) %>%
