@@ -91,7 +91,8 @@ disch_na <- filter(patients_exit_hospital, is.na(discharge_group))
 
 patients_exit_hospital <- filter(patients_exit_hospital, !is.na(discharge_group))
 
-## Data Exploration
+## Data Exploration + Arima Model
+prediction.length <- 20
 ## Yearly
 patients_yearly_exit <- group_by(patients_exit_hospital, Year.of.Discharge, discharge_group) %>%
                                  summarise(count = n())
@@ -141,7 +142,7 @@ patients_weekly_exit <- patients_exit_hospital %>%
 ggplot(data=patients_weekly_exit, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, 
                                            group=discharge_group)) + geom_line(aes(color=discharge_group)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
-# Monthly Normal Discharge group
+# Weekly Normal Discharge group
 weekly_normal <- filter(patients_weekly_exit, discharge_group == "Normal Discharge")
 # acf
 acf(weekly_normal$count)
@@ -149,7 +150,12 @@ plot.ts(weekly_normal$count)
 acf(diff(weekly_normal$count))
 plot.ts(diff(weekly_normal$count))
 weekly_normal <- weekly_normal[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
-# Monthly External Transfer Discharge group
+# arima
+weekly.normal.model <- arima(weekly_normal$count, order = c(1,0,0))
+weekly.normal.prediction <-predict(weekly.normal.model,n.ahead=prediction.length)
+weekly.normal.admissions.pred <- weekly.normal.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_normal$count, weekly.normal.admissions.pred))
+# Weekly External Transfer Discharge group
 weekly_transfer <- filter(patients_weekly_exit, discharge_group == "External Transfer")
 # acf
 acf(weekly_transfer$count)
@@ -157,7 +163,12 @@ plot.ts(weekly_transfer$count)
 acf(diff(weekly_transfer$count))
 plot.ts(diff(weekly_transfer$count))
 weekly_transfer <- weekly_transfer[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
-# Monthly Deaths or Palliative Care Discharge group
+# arima
+weekly.transfer.model <- arima(weekly_transfer$count, order = c(1,0,0))
+weekly.transfer.prediction <-predict(weekly.transfer.model,n.ahead=prediction.length)
+weekly.transfer.admissions.pred <- weekly.transfer.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_transfer$count, weekly.transfer.admissions.pred))
+# Weekly Deaths or Palliative Care Discharge group
 weekly_palliative <- filter(patients_weekly_exit, discharge_group == "Palliative/Deceased")
 # acf
 acf(weekly_palliative$count)
@@ -165,3 +176,8 @@ plot.ts(weekly_palliative$count)
 acf(diff(weekly_palliative$count))
 plot.ts(diff(weekly_palliative$count))
 weekly_palliative <- weekly_palliative[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+# arima
+weekly.palliative.model <- arima(weekly_palliative$count, order = c(1,0,0))
+weekly.palliative.prediction <-predict(weekly.palliative.model,n.ahead=prediction.length)
+weekly.palliative.admissions.pred <- weekly.palliative.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_palliative$count, weekly.palliative.admissions.pred))
