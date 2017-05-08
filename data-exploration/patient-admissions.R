@@ -194,33 +194,10 @@ all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Meth
   bind_rows(add_column_with_value_to(total.admissions, "Method.of.Admission", "total"))  %>%
   dcast(Year.of.Admission + Week.of.Admission ~ Method.of.Admission, value.var = c("weekly.count")) %>%
   mutate(total.of.parts = emergency + maternity + other + elective,
-         ratio.to.total = total.of.parts/total)
-
-
-
-# check resource pool per type of admission
-# emergency admissions
-# emergency.patients.per.week <- group_by(patient.admissions, Year.Week, Resource.Pool.name) %>%
-#                      filter(Method.of.Admission.Category == "Emergency Admission") %>%
-#                      tally() %>%
-#                      dcast(Year.Week ~ Resource.Pool.name)  %>%
-#                      setNames(c("Year.Week","elderly","medical","palliative","surgical","unscheduled","women.child")) %>%
-#                      all_na_to_0()
-# # pretty much no palliative care
-# # the rest varies
-# ggplot(emergency.patients.per.week, aes(Year.Week)) +
-#   geom_line(aes(y = emergency.patients.per.week$elderly, colour = "Elderly Care", group=1)) +
-#   geom_line(aes(y = emergency.patients.per.week$medical, colour = "Medical", group=1)) +
-#   geom_line(aes(y = emergency.patients.per.week$surgical, colour = "Surgical", group=1)) +
-#   geom_line(aes(y = emergency.patients.per.week$unscheduled, colour = "Unscheduled Care", group=1)) +
-#   geom_line(aes(y = emergency.patients.per.week$women.child, colour = "Women and Child", group=1)) +
-#   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
-# 
-# acf(emergency.patients.per.week$elderly) #still nope
-# ggplot(emergency.patients.per.week, aes(Year.Week)) + 
-#   geom_line(aes(y = emergency.patients.per.week$elderly, colour = "Elderly Care", group=1)) + 
-#   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
-# emergency.elderly.model <- arima(emergency.patients.per.week$elderly, order=c(1,0,1))
-# emergency.elderly.prediction <- predict(emergency.elderly.model, n.ahead=prediction.length, interval = 'confidence')
-# emergency.elderly.forecast <- forecast(emergency.elderly.model, level = c(95), h = prediction.length)
-# autoplot(emergency.elderly.forecast)
+         ratio.to.total = total.of.parts/total,
+         emergency.adjusted = as.integer(emergency/ratio.to.total),
+         maternity.adjusted = as.integer(maternity/ratio.to.total),
+         elective.adjusted = as.integer(elective/ratio.to.total),
+         other.adjusted = as.integer(other/ratio.to.total)) %>%
+  select(Year.of.Admission, Week.of.Admission, emergency.adjusted, maternity.adjusted, elective.adjusted, other.adjusted) %>%
+  melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission", value.name = c("weekly.count"))
