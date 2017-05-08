@@ -144,6 +144,42 @@ maternity.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = re
                                                Year.of.Admission = as.character(Year.of.Admission))
 maternity.admissions <- bind_rows(maternity.admissions.wk, maternity.admissions.prediction.data)
 
+# Other admissions
+other.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Other Admission") %>%
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n()) %>%
+  remove_first_and_last_n(1)
+other.admissions.model <- arima(other.admissions.wk$weekly.count, order = c(1,1,1))
+#other.admissions.forecast <- forecast(other.admissions.model, level = c(95), h = prediction.length)
+#autoplot(other.admissions.forecast) # to see confidence interval on prediction
+other.admissions.prediction <- predict(other.admissions.model, n.ahead = prediction.length)
+other.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                                          Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                                          weekly.count = other.admissions.prediction$pred[1:prediction.length]),
+                                               weekly.count = as.integer(weekly.count),
+                                               Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                               Year.of.Admission = as.character(Year.of.Admission))
+other.admissions <- bind_rows(other.admissions.wk, other.admissions.prediction.data)
+
+# Elective admissions
+elective.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Elective Admission") %>%
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n()) %>%
+  remove_first_and_last_n(1)
+elective.admissions.model <- arima(elective.admissions.wk$weekly.count, order = c(1,1,1))
+#elective.admissions.forecast <- forecast(elective.admissions.model, level = c(95), h = prediction.length)
+#autoplot(elective.admissions.forecast) # to see confidence interval on prediction
+elective.admissions.prediction <- predict(elective.admissions.model, n.ahead = prediction.length)
+elective.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                                      Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                                      weekly.count = elective.admissions.prediction$pred[1:prediction.length]),
+                                           weekly.count = as.integer(weekly.count),
+                                           Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                           Year.of.Admission = as.character(Year.of.Admission))
+elective.admissions <- bind_rows(elective.admissions.wk, elective.admissions.prediction.data)
+
 # check resource pool per type of admission
 # emergency admissions
 # emergency.patients.per.week <- group_by(patient.admissions, Year.Week, Resource.Pool.name) %>%
