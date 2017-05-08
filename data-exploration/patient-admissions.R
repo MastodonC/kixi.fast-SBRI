@@ -115,8 +115,34 @@ emergency.admissions.wk <- filter(patient.admissions, Method.of.Admission.Catego
   remove_first_and_last_n(1)
 
 emergency.admissions.model <- arima(emergency.admissions.wk$weekly.count, order = c(1,1,1))
-emergency.admissions.forecast <- forecast(emergency.admissions.model, level = c(95), h = prediction.length)
-autoplot(emergency.admissions.forecast)
+#emergency.admissions.forecast <- forecast(emergency.admissions.model, level = c(95), h = prediction.length)
+#autoplot(emergency.admissions.forecast) # to see confidence interval on prediction
+emergency.admissions.prediction <- predict(emergency.admissions.model, n.ahead = prediction.length)
+emergency.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                           Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                           weekly.count = emergency.admissions.prediction$pred[1:prediction.length]),
+                                weekly.count = as.integer(weekly.count),
+                                Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                Year.of.Admission = as.character(Year.of.Admission))
+emergency.admissions <- bind_rows(emergency.admissions.wk, emergency.admissions.prediction.data)
+
+# maternity
+maternity.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Maternity Admission") %>%
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarise(weekly.count=n()) %>%
+  remove_first_and_last_n(1)
+maternity.admissions.model <- arima(maternity.admissions.wk$weekly.count, order = c(1,1,1))
+#maternity.admissions.forecast <- forecast(maternity.admissions.model, level = c(95), h = prediction.length)
+#autoplot(maternity.admissions.forecast) # to see confidence interval on prediction
+maternity.admissions.prediction <- predict(maternity.admissions.model, n.ahead = prediction.length)
+maternity.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
+                                                          Week.of.Admission = (last.week+1):(last.week+prediction.length),
+                                                          weekly.count = maternity.admissions.prediction$pred[1:prediction.length]),
+                                               weekly.count = as.integer(weekly.count),
+                                               Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                               Year.of.Admission = as.character(Year.of.Admission))
+maternity.admissions <- bind_rows(maternity.admissions.wk, maternity.admissions.prediction.data)
 
 # check resource pool per type of admission
 # emergency admissions
