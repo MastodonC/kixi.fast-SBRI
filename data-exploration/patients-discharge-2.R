@@ -43,9 +43,6 @@ exit_types <- unique(patients_exit_hospital$Method.of.Discharge)
 
 exits_transfers <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Nurse Internal Disc",
                                                                              "Internal Discharge"))
-# those are 821 records out of 67,659 records and they have a Ward.Episode.Number==1!
-patient1 <- filter(patients_exit_hospital, H.C.Encrypted == "15FGJQR8CH") # patient actually sent home
-patient2 <- filter(patients_exit_hospital, H.C.Encrypted == "15WB9QA4OH")
 
 # Does `Method.of.Discharge` generally match `Destination.Discharge.Description`?
 disch_method_and_destination <- patients_exit_hospital[,c("H.C.Encrypted", "Method.of.Discharge", 
@@ -62,7 +59,12 @@ normal_disch <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Norma
                                                                   "RELATIVE'S HOME"))
 
 # Add exit group for all records
-patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Method.of.Discharge %in% c("Normal Discharge", 
+patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Method.of.Discharge %in% c("Died-Post Mortem", "Died-No Post Mortem", 
+                                                                                                      "Stillbirth")
+                                                    | patients_exit_hospital$Specialty.on.Exit.of.Ward == "Palliative Medicine (C)"
+                                                    ~ "Palliative/Deceased",
+                                                    
+                                                    patients_exit_hospital$Method.of.Discharge %in% c("Normal Discharge", 
                                                                              "Nurse Led Discharge",
                                                                              "Self/Relative Disch.")
                                                     | patients_exit_hospital$Destination.Discharge.Description %in% c("HOME / USUAL ADDRESS", 
@@ -80,16 +82,14 @@ patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Metho
                                                                                                "NON-UK HOSPITAL",
                                                                                                "NHS HOSP- MENTAL ILL",
                                                                                                "NHS HOSP. -MATERNITY")
-                                                    ~ "External Transfer",
-                                                    
-                                                    patients_exit_hospital$Method.of.Discharge %in% c("Died-Post Mortem", "Died-No Post Mortem", 
-                                                                                                      "Stillbirth")
-                                                    ~ "Deceased"
-  
+                                                    ~ "External Transfer"
 )
 
 # what records have `discharge_group`==NA
-disch_na <- filter(patients_exit_hospital, is.na(discharge_group))
+disch_na <- filter(patients_exit_hospital, is.na(discharge_group)) 
+# just 1 record I can't classify -> let's drop it
+
+patients_exit_hospital <- filter(patients_exit_hospital, !is.na(discharge_group))
 
 ## Data Exploration
 ## Yearly
@@ -106,11 +106,31 @@ patients_monthly_exit <- patients_exit_hospital %>%
 
 ggplot(data=patients_monthly_exit, aes(x=paste(Year.of.Discharge, Month.of.Discharge, sep="-"), y=count, 
                                             group=discharge_group)) + geom_line(aes(color=discharge_group)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
-acf(patients_monthly_exit$count)
-plot.ts(patients_monthly_exit$count)
-acf(diff(patients_monthly_exit$count))
-plot.ts(diff(patients_monthly_exit$count))
-# -> seasonality? 3 months cycle?
+
+# Monthly Normal Discharge group
+monthly_normal <- filter(patients_monthly_exit, discharge_group == "Normal Discharge")
+# acf
+acf(monthly_normal$count)
+plot.ts(monthly_normal$count)
+acf(diff(monthly_normal$count))
+plot.ts(diff(monthly_normal$count))
+monthly_normal <- monthly_normal[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+# Monthly External Transfer Discharge group
+monthly_transfer <- filter(patients_monthly_exit, discharge_group == "External Transfer")
+# acf
+acf(monthly_transfer$count)
+plot.ts(monthly_transfer$count)
+acf(diff(monthly_transfer$count))
+plot.ts(diff(monthly_transfer$count))
+monthly_transfer <- monthly_transfer[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+# Monthly Deaths or Palliative Care Discharge group
+monthly_palliative <- filter(patients_monthly_exit, discharge_group == "Palliative/Deceased")
+# acf
+acf(monthly_palliative$count)
+plot.ts(monthly_palliative$count)
+acf(diff(monthly_palliative$count))
+plot.ts(diff(monthly_palliative$count))
+
 
 ## Weekly
 patients_weekly_exit <- patients_exit_hospital %>%
@@ -121,8 +141,27 @@ patients_weekly_exit <- patients_exit_hospital %>%
 ggplot(data=patients_weekly_exit, aes(x=paste(Year.of.Discharge, Week.of.Discharge, sep="-"), y=count, 
                                            group=discharge_group)) + geom_line(aes(color=discharge_group)) + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
-acf(patients_weekly_exit$count)
-plot.ts(patients_weekly_exit$count)
-acf(diff(patients_weekly_exit$count))
-plot.ts(diff(patients_weekly_exit$count))
-# -> seasonality? 3 months cycle?
+# Monthly Normal Discharge group
+weekly_normal <- filter(patients_weekly_exit, discharge_group == "Normal Discharge")
+# acf
+acf(weekly_normal$count)
+plot.ts(weekly_normal$count)
+acf(diff(weekly_normal$count))
+plot.ts(diff(weekly_normal$count))
+weekly_normal <- weekly_normal[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+# Monthly External Transfer Discharge group
+weekly_transfer <- filter(patients_weekly_exit, discharge_group == "External Transfer")
+# acf
+acf(weekly_transfer$count)
+plot.ts(weekly_transfer$count)
+acf(diff(weekly_transfer$count))
+plot.ts(diff(weekly_transfer$count))
+weekly_transfer <- weekly_transfer[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
+# Monthly Deaths or Palliative Care Discharge group
+weekly_palliative <- filter(patients_weekly_exit, discharge_group == "Palliative/Deceased")
+# acf
+acf(weekly_palliative$count)
+plot.ts(weekly_palliative$count)
+acf(diff(weekly_palliative$count))
+plot.ts(diff(weekly_palliative$count))
+weekly_palliative <- weekly_palliative[,c("Year.of.Discharge", "Month.of.Discharge", "count")]
