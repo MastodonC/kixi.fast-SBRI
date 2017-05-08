@@ -53,13 +53,6 @@ patients_exit_hospital <- patient.data %>%
                           arrange(Ward.Episode.Number) %>%
                           filter(row_number()==n() & is.na(Date.of.Discharge)==0)
 
-# Try matching specialities -> all specialities match a resource pool =)
-specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactors = F, 
-                               na.strings=c("","NA"))
-
-exits_per_speciality <- merge(patients_exit_hospital, specialities_match, 
-                              by.x="Specialty.on.Exit.of.Ward", by.y="PAS.name")
-
 # For the exit types I don't expect internal transfers, but still there are some
 exit_types <- unique(patients_exit_hospital$Method.of.Discharge)
 
@@ -107,6 +100,7 @@ disch_na <- filter(patients_exit_hospital, is.na(discharge_group))
 patients_exit_hospital <- filter(patients_exit_hospital, !is.na(discharge_group))
 
 ### Discharges per weekday
+## Total discharges
 total_discharges <- nrow(patients_exit_hospital)
 
 weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
@@ -123,6 +117,30 @@ ggplot(data=discharge_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + ge
 
 weekday_discharge_proportions <- discharge_per_weekday %>%
                                  mutate(proportions = weekday_count / total_discharges)
+
+## Discharge groups
+disch_grps_per_weekday <- patients_exit_hospital %>%
+                          group_by(Discharge.weekdays, discharge_group) %>%
+                          summarize(weekday_count = n()) %>%
+                          mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+                          arrange(weekday.ordered)
+ggplot(data=disch_grps_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col(aes(fill=discharge_group))
+
+## Resource pools
+# Specialities data
+specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactors = F, 
+                               na.strings=c("","NA"))
+
+exits_per_speciality <- merge(patients_exit_hospital, specialities_match, 
+                              by.x="Specialty.on.Exit.of.Ward", by.y="PAS.name")
+
+exit_spe_per_weekday <- exits_per_speciality %>%
+                        group_by(Discharge.weekdays, Resource.Pool.name) %>%
+                        summarize(weekday_count = n()) %>%
+                        mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+                        arrange(weekday.ordered)
+
+ggplot(data=exit_spe_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col(aes(fill=Resource.Pool.name))
 
 ### Data Exploration + Arima Model
 prediction.length <- 20
