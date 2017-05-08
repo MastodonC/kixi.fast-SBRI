@@ -52,6 +52,14 @@ ggplot(patients.per.day, aes(Date.of.Admission)) +
 
 acf(patients.per.day$elderly)
 acf(diff(patients.per.day$elderly)) # no cycles
+acf(diff(patients.per.day$unscheduled)) # nope
+
+acf(patients.per.day$medical) # 7 day cycle
+acf(patients.per.day$palliative) # 7 day cycle
+acf(patients.per.day$surgical)
+pacf(patients.per.day$surgical) # possible 7 day cycle, however memory effect
+acf(patients.per.day$unscheduled)
+acf(patients.per.day$women.child) # might be 7 day cycle
 
 patients.per.week <- tally(group_by(patient.admissions, Year.Week, Resource.Pool.name)) %>%
   dcast(Year.Week ~ Resource.Pool.name) %>%
@@ -66,3 +74,21 @@ ggplot(patients.per.week, aes(Year.Week)) +
   geom_line(aes(y = patients.per.week$unscheduled, colour = "Unscheduled Care", group=1)) +
   geom_line(aes(y = patients.per.week$women.child, colour = "Women and Child", group=1)) + 
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+ggplot(patients.per.week, aes(Year.Week)) + 
+  geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1))
+acf(patients.per.week$elderly) #nope
+ggplot(patients.per.week, aes(Year.Week)) + 
+  geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1))
+acf(patients.per.week$medical)
+
+# check resource pool per type of admission
+# emergency admissions
+emergency.patients.per.week <- group_by(patient.admissions, Year.Week, Resource.Pool.name) %>%
+                     filter(Method.of.Admission.Category == "Emergency Admission") %>%
+                     tally() %>%
+                     dcast(Year.Week ~ Resource.Pool.name)  %>%
+                     setNames(c("Year.Week","elderly","medical","palliative","surgical","unscheduled","women.child")) %>%
+                     all_na_to_0()
+# pretty much no palliative care
+# the rest varies
