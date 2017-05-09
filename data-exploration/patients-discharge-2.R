@@ -140,7 +140,9 @@ exit_spe_per_weekday <- exits_per_speciality %>%
                         mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
                         arrange(weekday.ordered)
 
-ggplot(data=exit_spe_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col(aes(fill=Resource.Pool.name))
+ggplot(exit_spe_per_weekday, aes(x = weekday.ordered, y = weekday_count, fill = Resource.Pool.name, label = weekday_count)) +
+  geom_bar(stat = "identity") +
+  geom_text(size = 3, position = position_stack(vjust = 0.5))
 
 ### Data Exploration + Arima Model
 prediction.length <- 20
@@ -583,13 +585,22 @@ disch_pall_care_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,predi
 all_disch_resources_pred <- rename(last_discharge_pred, all_discharges = daily_count) %>%
                             full_join(rename(last_medical_discharge_pred, medical_discharge = daily_count), 
                                       by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
-                            full_join(rename(last_surgical_discharge_pred, surgical_transfer = daily_count), 
+                            full_join(rename(last_surgical_discharge_pred, surgical_discharge = daily_count), 
                                       by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
-                            full_join(rename(last_wc_discharge_pred, women_child_deceased = daily_count), 
+                            full_join(rename(last_wc_discharge_pred, women_child_discharge = daily_count), 
                                       by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
-                            full_join(rename(last_elderly_discharge_pred, elderly_transfer = daily_count), 
+                            full_join(rename(last_elderly_discharge_pred, elderly_discharge = daily_count), 
                                       by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
-                            full_join(rename(last_unscheduled_discharge_pred, unscheduled_deceased = daily_count), 
+                            full_join(rename(last_unscheduled_discharge_pred, unscheduled_discharge = daily_count), 
                                       by=c("Year.of.Discharge", "Week.of.Discharge", "date"))
 
 all_disch_resources_pred[is.na(all_disch_resources_pred)] <- 0 # Replace NAs by "0"
+
+all_disch_resources_pred$sum_resources <- all_disch_resources_pred$medical_discharge + 
+                                          all_disch_resources_pred$surgical_discharge + 
+                                          all_disch_resources_pred$women_child_discharge + 
+                                          all_disch_resources_pred$elderly_discharge +
+                                          all_disch_resources_pred$unscheduled_discharge
+
+# The sum of 5/6 resources should always be equal or less than the total
+errors <- filter(all_disch_resources_pred, all_discharges < sum_resources)
