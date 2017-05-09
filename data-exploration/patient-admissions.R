@@ -50,49 +50,49 @@ patient.admissions <- left_join(patient.admissions, resource_pool.specialties, b
 
 # group by day, resource pool and admission type, and plot over time
 # first per resource pool and day
-patients.per.day <- tally(group_by(patient.admissions, Date.of.Admission, Resource.Pool.name)) %>%
-                    dcast(Date.of.Admission ~ Resource.Pool.name) %>%
-                    setNames(c("Date.of.Admission","elderly","medical","palliative","surgical","unscheduled","women.child"))
-patients.per.day <- all_na_to_0(patients.per.day)
-
-ggplot(patients.per.day, aes(Date.of.Admission)) + 
-  geom_line(aes(y = patients.per.day$elderly, colour = "Elderly Care")) +
-  geom_line(aes(y = patients.per.day$medical, colour = "Medical")) +
-  geom_line(aes(y = patients.per.day$palliative, colour = "Palliative Care")) +
-  geom_line(aes(y = patients.per.day$surgical, colour = "Surgical")) +
-  geom_line(aes(y = patients.per.day$unscheduled, colour = "Unscheduled Care")) +
-  geom_line(aes(y = patients.per.day$women.child, colour = "Women and Child"))
-
-acf(patients.per.day$elderly)
-acf(diff(patients.per.day$elderly)) # no cycles
-acf(diff(patients.per.day$unscheduled)) # nope
-
-acf(patients.per.day$medical) # 7 day cycle
-acf(patients.per.day$palliative) # 7 day cycle
-acf(patients.per.day$surgical)
-pacf(patients.per.day$surgical) # possible 7 day cycle, however memory effect
-acf(patients.per.day$women.child) # might be 7 day cycle
-
-patients.per.week <- tally(group_by(patient.admissions, Year.Week, Resource.Pool.name)) %>%
-  dcast(Year.Week ~ Resource.Pool.name) %>%
-  setNames(c("Year.Week","elderly","medical","palliative","surgical","unscheduled","women.child"))
-patients.per.week <- all_na_to_0(patients.per.week)
-
-ggplot(patients.per.week, aes(Year.Week)) + 
-  geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1)) +
-  geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1)) +
-  geom_line(aes(y = patients.per.week$palliative, colour = "Palliative Care", group=1)) +
-  geom_line(aes(y = patients.per.week$surgical, colour = "Surgical", group=1)) +
-  geom_line(aes(y = patients.per.week$unscheduled, colour = "Unscheduled Care", group=1)) +
-  geom_line(aes(y = patients.per.week$women.child, colour = "Women and Child", group=1)) + 
-  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
-
-ggplot(patients.per.week, aes(Year.Week)) + 
-  geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1))
-acf(patients.per.week$elderly) #nope
-ggplot(patients.per.week, aes(Year.Week)) + 
-  geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1))
-acf(patients.per.week$medical)
+# patients.per.day <- tally(group_by(patient.admissions, Date.of.Admission, Resource.Pool.name)) %>%
+#                     dcast(Date.of.Admission ~ Resource.Pool.name) %>%
+#                     setNames(c("Date.of.Admission","elderly","medical","palliative","surgical","unscheduled","women.child"))
+# patients.per.day <- all_na_to_0(patients.per.day)
+# 
+# ggplot(patients.per.day, aes(Date.of.Admission)) + 
+#   geom_line(aes(y = patients.per.day$elderly, colour = "Elderly Care")) +
+#   geom_line(aes(y = patients.per.day$medical, colour = "Medical")) +
+#   geom_line(aes(y = patients.per.day$palliative, colour = "Palliative Care")) +
+#   geom_line(aes(y = patients.per.day$surgical, colour = "Surgical")) +
+#   geom_line(aes(y = patients.per.day$unscheduled, colour = "Unscheduled Care")) +
+#   geom_line(aes(y = patients.per.day$women.child, colour = "Women and Child"))
+# 
+# acf(patients.per.day$elderly)
+# acf(diff(patients.per.day$elderly)) # no cycles
+# acf(diff(patients.per.day$unscheduled)) # nope
+# 
+# acf(patients.per.day$medical) # 7 day cycle
+# acf(patients.per.day$palliative) # 7 day cycle
+# acf(patients.per.day$surgical)
+# pacf(patients.per.day$surgical) # possible 7 day cycle, however memory effect
+# acf(patients.per.day$women.child) # might be 7 day cycle
+# 
+# patients.per.week <- tally(group_by(patient.admissions, Year.Week, Resource.Pool.name)) %>%
+#   dcast(Year.Week ~ Resource.Pool.name) %>%
+#   setNames(c("Year.Week","elderly","medical","palliative","surgical","unscheduled","women.child"))
+# patients.per.week <- all_na_to_0(patients.per.week)
+# 
+# ggplot(patients.per.week, aes(Year.Week)) + 
+#   geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1)) +
+#   geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1)) +
+#   geom_line(aes(y = patients.per.week$palliative, colour = "Palliative Care", group=1)) +
+#   geom_line(aes(y = patients.per.week$surgical, colour = "Surgical", group=1)) +
+#   geom_line(aes(y = patients.per.week$unscheduled, colour = "Unscheduled Care", group=1)) +
+#   geom_line(aes(y = patients.per.week$women.child, colour = "Women and Child", group=1)) + 
+#   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+# 
+# ggplot(patients.per.week, aes(Year.Week)) + 
+#   geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1))
+# acf(patients.per.week$elderly) #nope
+# ggplot(patients.per.week, aes(Year.Week)) + 
+#   geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1))
+# acf(patients.per.week$medical)
 
 # predict totals
 total.patients.per.week <- group_by(patient.admissions, Year.of.Admission, Week.of.Admission) %>%
@@ -111,7 +111,7 @@ total.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,pre
                          weekly.count = as.integer(weekly.count),
                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
                          Year.of.Admission = as.character(Year.of.Admission))
-total.admissions <- bind_rows(total.patients.per.week, total.prediction.data)
+total.admissions <- total.prediction.data
 
 # emergency admissions
 emergency.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Emergency Admission") %>%
@@ -130,7 +130,8 @@ emergency.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = re
                                 weekly.count = as.integer(weekly.count),
                                 Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                 Year.of.Admission = as.character(Year.of.Admission))
-emergency.admissions <- bind_rows(emergency.admissions.wk, emergency.admissions.prediction.data)
+#emergency.admissions <- bind_rows(emergency.admissions.wk, emergency.admissions.prediction.data)
+emergency.admissions <- emergency.admissions.prediction.data
 
 # maternity
 maternity.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Maternity Admission") %>%
@@ -148,7 +149,8 @@ maternity.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = re
                                                weekly.count = as.integer(weekly.count),
                                                Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                                Year.of.Admission = as.character(Year.of.Admission))
-maternity.admissions <- bind_rows(maternity.admissions.wk, maternity.admissions.prediction.data)
+#maternity.admissions <- bind_rows(maternity.admissions.wk, maternity.admissions.prediction.data)
+maternity.admissions <- maternity.admissions.prediction.data
 
 # Other admissions
 other.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Other Admission") %>%
@@ -166,7 +168,8 @@ other.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(la
                                                weekly.count = as.integer(weekly.count),
                                                Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                                Year.of.Admission = as.character(Year.of.Admission))
-other.admissions <- bind_rows(other.admissions.wk, other.admissions.prediction.data)
+#other.admissions <- bind_rows(other.admissions.wk, other.admissions.prediction.data)
+other.admissions <- other.admissions.prediction.data
 
 # Elective admissions
 elective.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Elective Admission") %>%
@@ -184,7 +187,8 @@ elective.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep
                                            weekly.count = as.integer(weekly.count),
                                            Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                            Year.of.Admission = as.character(Year.of.Admission))
-elective.admissions <- bind_rows(elective.admissions.wk, elective.admissions.prediction.data)
+#elective.admissions <- bind_rows(elective.admissions.wk, elective.admissions.prediction.data)
+elective.admissions <- elective.admissions.prediction.data
 
 # sum all the predictions and find factor to make them equal to total
 all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Method.of.Admission", "emergency"),
@@ -195,9 +199,14 @@ all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Meth
   dcast(Year.of.Admission + Week.of.Admission ~ Method.of.Admission, value.var = c("weekly.count")) %>%
   mutate(total.of.parts = emergency + maternity + other + elective,
          ratio.to.total = total.of.parts/total,
-         emergency.adjusted = as.integer(emergency/ratio.to.total),
-         maternity.adjusted = as.integer(maternity/ratio.to.total),
-         elective.adjusted = as.integer(elective/ratio.to.total),
-         other.adjusted = as.integer(other/ratio.to.total)) %>%
-  select(Year.of.Admission, Week.of.Admission, emergency.adjusted, maternity.adjusted, elective.adjusted, other.adjusted) %>%
+         "Emergency Admission" = as.integer(emergency/ratio.to.total),
+         "Maternity Admission" = as.integer(maternity/ratio.to.total),
+         "Elective Admission" = as.integer(elective/ratio.to.total),
+         "Other Admission" = as.integer(other/ratio.to.total)) %>%
+  select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
   melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission", value.name = c("weekly.count"))
+
+# now we need to re-separate, split up by weekday and resource pool.
+# either per admission type.
+emergency.admissions <- filter(all.admissions, Method.of.Admission == "Emergency Admission")
+
