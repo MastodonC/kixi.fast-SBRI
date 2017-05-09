@@ -22,7 +22,27 @@ add_column_with_value_to <- function(dataframe, colname, value) {
   dataframe
 }
 
+calculate.daily.counts.from.proportions <- function(weekly.data, proportions.data) {
+  bind_rows(mutate(weekly.data, day = 1),
+            mutate(weekly.data, day = 2),
+            mutate(weekly.data, day = 3),
+            mutate(weekly.data, day = 4),
+            mutate(weekly.data, day = 5),
+            mutate(weekly.data, day = 6),
+            mutate(weekly.data, day = 7)) %>%
+    arrange(Year.of.Admission,Week.of.Admission, day) %>%
+    mutate(date = as.Date(paste(Year.of.Admission, Week.of.Admission, (day-1), sep="-"), format="%Y-%U-%w"))  %>%
+    mutate(date = if_else(is.na(date),
+                          as.Date(paste((as.integer(Year.of.Admission)+1), 0, (day-1), sep="-"), format="%Y-%U-%w"),
+                          date))  %>% # remove the last days of the last week
+    mutate(Admission.Weekday = weekdays(date, abbreviate = FALSE))  %>%
+    inner_join(proportions.data) %>%
+    mutate(daily.count = weekly.count * proportion)
+}
+
+
 prediction.length <- 20
+weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
 
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
@@ -32,6 +52,7 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
     Year.Week = paste(Year.of.Admission, Week.of.Admission, sep="-"),
     Day.Admission = format(Date.of.Admission, "%d"),
     Month.Admission = format(Date.of.Admission, "%m"),
+    Admission.Weekday = weekdays(Date.of.Admission, abbreviate = F),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
     DateTime.of.Admission = as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
     Time.of.Admission = strftime(as.POSIXct(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"), format="%H:%M"),
@@ -199,14 +220,27 @@ all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Meth
   dcast(Year.of.Admission + Week.of.Admission ~ Method.of.Admission, value.var = c("weekly.count")) %>%
   mutate(total.of.parts = emergency + maternity + other + elective,
          ratio.to.total = total.of.parts/total,
-         "Emergency Admission" = as.integer(emergency/ratio.to.total),
-         "Maternity Admission" = as.integer(maternity/ratio.to.total),
-         "Elective Admission" = as.integer(elective/ratio.to.total),
-         "Other Admission" = as.integer(other/ratio.to.total)) %>%
+         "Emergency Admission" = emergency/ratio.to.total,
+         "Maternity Admission" = maternity/ratio.to.total,
+         "Elective Admission" = elective/ratio.to.total,
+         "Other Admission" = other/ratio.to.total) %>%
   select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
   melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission", value.name = c("weekly.count"))
 
 # now we need to re-separate, split up by weekday and resource pool.
 # either per admission type.
-emergency.admissions <- filter(all.admissions, Method.of.Admission == "Emergency Admission")
-
+# emergency admissions
+# Resource pool proportions
+emergency.admissions.prediction <- filter(all.admissions, Method.of.Admission == "Emergency Admission")
+emergency.admissions <- filter(patient.admissions, Method.of.Admission.Category == "Emergency Admission")
+emergency.resource_pool.proportions <- group_by(emergency.admissions, Resource.Pool.name) %>%
+  tally() %>%
+  add_column_with_value_to("total",nrow(emergency.admissions)) %>%
+  mutate(proportion = n/total)
+# weekdays
+emergency.admissions.per.weekday <- group_by(emergency.admissions, Admission.Weekday) %>%
+  tally() %>%
+  add_column_with_value_to("total", nrow(emergency.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+emergency.admissions.daily <- calculate.daily.counts.from.proportions(emergency.admissions.prediction, emergency.admissions.per.weekday)
