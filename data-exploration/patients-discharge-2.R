@@ -373,9 +373,9 @@ write.csv(all_discharges_pred, file = "discharge-group-with-predictions.csv", ro
 
 ### Discharges and Pharmacists resource pools
 weekly_disch_res <- exits_per_speciality %>%
-  group_by(Year.of.Discharge, Week.of.Discharge, Resource.Pool.name) %>%
-  arrange(Year.of.Discharge, Week.of.Discharge) %>%
-  summarise(weekly_count = n())
+                    group_by(Year.of.Discharge, Week.of.Discharge, Resource.Pool.name) %>%
+                    arrange(Year.of.Discharge, Week.of.Discharge) %>%
+                    summarise(weekly_count = n())
 ## Medical
 medical_disch <- filter(weekly_disch_res, Resource.Pool.name == "Medical")
 medical_disch <- medical_disch[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
@@ -396,6 +396,22 @@ disch_medical_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,predict
                             weekly_count = as.integer(weekly_count),
                             Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                             Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+medical_disch_days <- calculate.weekly.disch.from.proportions(disch_medical_pred, 
+                                                              weekday_discharge_proportions)
+medical_disch_per_day <- medical_disch_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                               "date", "daily_count")]
+# join historical and predictions df
+daily_hist_medical_disch <- exits_per_speciality %>%
+                            filter(Resource.Pool.name == "Medical") %>%
+                            group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                            arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                            summarise(daily_count = n()) %>%
+                            rename(date = Date.of.Discharge)
+last_medical_discharge_pred <- bind_rows(daily_hist_medical_disch,
+                                         medical_disch_per_day)
+ggplot(data=last_medical_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 ## Surgical
 surgical_disch <- filter(weekly_disch_res, Resource.Pool.name == "Surgical")
 surgical_disch <- surgical_disch[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
@@ -416,6 +432,22 @@ disch_surgical_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,predic
                              weekly_count = as.integer(weekly_count),
                              Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                              Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+surgical_disch_days <- calculate.weekly.disch.from.proportions(disch_surgical_pred, 
+                                                              weekday_discharge_proportions)
+surgical_disch_per_day <- surgical_disch_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                               "date", "daily_count")]
+# join historical and predictions df
+daily_hist_surgical_disch <- exits_per_speciality %>%
+                             filter(Resource.Pool.name == "Surgical") %>%
+                             group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                             arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                             summarise(daily_count = n()) %>%
+                             rename(date = Date.of.Discharge)
+last_surgical_discharge_pred <- bind_rows(daily_hist_surgical_disch,
+                                         surgical_disch_per_day)
+ggplot(data=last_surgical_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 ## Women and Child
 wc_disch <- filter(weekly_disch_res, Resource.Pool.name == "Women and Child")
 wc_disch <- wc_disch[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
@@ -436,6 +468,22 @@ disch_wc_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.l
                        weekly_count = as.integer(weekly_count),
                        Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                        Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+wc_disch_days <- calculate.weekly.disch.from.proportions(disch_wc_pred, 
+                                                         weekday_discharge_proportions)
+wc_disch_per_day <- wc_disch_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                               "date", "daily_count")]
+# join historical and predictions df
+daily_hist_wc_disch <- exits_per_speciality %>%
+                       filter(Resource.Pool.name == "Women and Child") %>%
+                       group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                       arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                       summarise(daily_count = n()) %>%
+                       rename(date = Date.of.Discharge)
+last_wc_discharge_pred <- bind_rows(daily_hist_wc_disch,
+                                          wc_disch_per_day)
+ggplot(data=last_wc_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 ## Elderly Care
 elderly_disch <- filter(weekly_disch_res, Resource.Pool.name == "Elderly Care")
 elderly_disch <- elderly_disch[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
@@ -456,6 +504,22 @@ disch_elderly_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,predict
                             weekly_count = as.integer(weekly_count),
                             Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                             Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+elderly_disch_days <- calculate.weekly.disch.from.proportions(disch_elderly_pred, 
+                                                              weekday_discharge_proportions)
+elderly_disch_per_day <- elderly_disch_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                               "date", "daily_count")]
+# join historical and predictions df
+daily_hist_elderly_disch <- exits_per_speciality %>%
+                            filter(Resource.Pool.name == "Elderly Care") %>%
+                            group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                            arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                            summarise(daily_count = n()) %>%
+                            rename(date = Date.of.Discharge)
+last_elderly_discharge_pred <- bind_rows(daily_hist_elderly_disch,
+                                         elderly_disch_per_day)
+ggplot(data=last_elderly_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 # Unscheduled Care
 unscheduled_disch <- filter(weekly_disch_res, Resource.Pool.name == "Unscheduled Care")
 unscheduled_disch <- unscheduled_disch[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
@@ -476,6 +540,22 @@ disch_unscheduled_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,pre
                                 weekly_count = as.integer(weekly_count),
                                 Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                                 Year.of.Discharge = as.character(Year.of.Discharge))
+# using proportions to calculate counts for days of week
+unscheduled_disch_days <- calculate.weekly.disch.from.proportions(disch_unscheduled_pred, 
+                                                                  weekday_discharge_proportions)
+unscheduled_disch_per_day <- unscheduled_disch_days[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                                       "date", "daily_count")]
+# join historical and predictions df
+daily_hist_unscheduled_disch <- exits_per_speciality %>%
+                                filter(Resource.Pool.name == "Unscheduled Care") %>%
+                                group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                                arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                                summarise(daily_count = n()) %>%
+                                rename(date = Date.of.Discharge)
+last_unscheduled_discharge_pred <- bind_rows(daily_hist_unscheduled_disch,
+                                             unscheduled_disch_per_day)
+ggplot(data=last_unscheduled_discharge_pred, aes(x=date, y=daily_count, group=0)) + geom_line() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
 #Palliative Care
 pall_care_disch <- filter(weekly_disch_res, Resource.Pool.name == "Palliative Care")
 pall_care_disch <- pall_care_disch[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
@@ -496,3 +576,20 @@ disch_pall_care_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,predi
                               weekly_count = as.integer(weekly_count),
                               Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                               Year.of.Discharge = as.character(Year.of.Discharge))
+# Not enough events predicted per week to break it down at the day level
+
+## Data reconciliation to match totals
+# Join all groups of discharge and total discharges together in one df
+all_disch_resources_pred <- rename(last_discharge_pred, all_discharges = daily_count) %>%
+                            full_join(rename(last_medical_discharge_pred, medical_discharge = daily_count), 
+                                      by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
+                            full_join(rename(last_surgical_discharge_pred, surgical_transfer = daily_count), 
+                                      by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
+                            full_join(rename(last_wc_discharge_pred, women_child_deceased = daily_count), 
+                                      by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
+                            full_join(rename(last_elderly_discharge_pred, elderly_transfer = daily_count), 
+                                      by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
+                            full_join(rename(last_unscheduled_discharge_pred, unscheduled_deceased = daily_count), 
+                                      by=c("Year.of.Discharge", "Week.of.Discharge", "date"))
+
+all_disch_resources_pred[is.na(all_disch_resources_pred)] <- 0 # Replace NAs by "0"
