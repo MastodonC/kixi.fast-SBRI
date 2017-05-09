@@ -353,3 +353,20 @@ all_discharges_pred[is.na(all_discharges_pred)] <- 0 # Replace NAs by "0"
 
 all_discharges_pred$adjustement_factor <- all_discharges_pred$all_discharges / (all_discharges_pred$normal_discharge + all_discharges_pred$external_transfer + all_discharges_pred$palliative_deceased)
 
+all_discharges_pred$normal_discharge_adjusted <- all_discharges_pred$normal_discharge * all_discharges_pred$adjustement_factor
+all_discharges_pred$external_transfer_adjusted <- all_discharges_pred$external_transfer * all_discharges_pred$adjustement_factor
+all_discharges_pred$palliative_deceased_adjusted <- all_discharges_pred$palliative_deceased * all_discharges_pred$adjustement_factor
+
+# Checking that the sum of all adjusted columns equals to all_discharged column
+all_discharges_pred$check_adjustments <- all_discharges_pred$normal_discharge_adjusted + all_discharges_pred$external_transfer_adjusted + all_discharges_pred$palliative_deceased_adjusted
+test_adjustements <- filter(all_discharges_pred, all_discharges != check_adjustments)
+test_adjustements <- test_adjustements[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                          "date", "all_discharges", "check_adjustments")]
+# 57 out of 880 records are returned -> visually "all_discharges" are equual to "check_adjustments" to the 5th decimal place
+
+all_discharges_pred <- all_discharges_pred[,c("Year.of.Discharge", "Week.of.Discharge", "date", "all_discharges", 
+                                              "normal_discharge_adjusted", "external_transfer_adjusted",
+                                              "palliative_deceased_adjusted")]
+
+# Discharge groups with predictions:
+write.csv(all_discharges_pred, file = "discharge-group-with-predictions.csv", row.names=F)
