@@ -40,6 +40,17 @@ calculate.daily.counts.from.proportions <- function(weekly.data, proportions.dat
     mutate(daily.count = weekly.count * proportion)
 }
 
+calculate.resource_pool.count.from.proportions <- function(daily.data, proportions.data) {
+  bind_rows(mutate(daily.data, Resource.Pool.name = "Elderly Care"),
+            mutate(daily.data, Resource.Pool.name = "Medical"),
+            mutate(daily.data, Resource.Pool.name = "Palliative Care"),
+            mutate(daily.data, Resource.Pool.name = "Surgical"),
+            mutate(daily.data, Resource.Pool.name = "Unscheduled Care"),
+            mutate(daily.data, Resource.Pool.name = "Women and Child")) %>%
+    inner_join(proportions.data) %>%
+    mutate(count = as.integer(daily.count * proportion))
+}
+
 
 prediction.length <- 20
 weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
@@ -235,12 +246,18 @@ emergency.admissions.prediction <- filter(all.admissions, Method.of.Admission ==
 emergency.admissions <- filter(patient.admissions, Method.of.Admission.Category == "Emergency Admission")
 emergency.resource_pool.proportions <- group_by(emergency.admissions, Resource.Pool.name) %>%
   tally() %>%
-  add_column_with_value_to("total",nrow(emergency.admissions)) %>%
-  mutate(proportion = n/total)
+  mutate(total = nrow(emergency.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Resource.Pool.name, proportion)
 # weekdays
 emergency.admissions.per.weekday <- group_by(emergency.admissions, Admission.Weekday) %>%
   tally() %>%
-  add_column_with_value_to("total", nrow(emergency.admissions)) %>%
+  mutate(total = nrow(emergency.admissions)) %>%
   mutate(proportion = n/total) %>%
   select(Admission.Weekday, proportion)
-emergency.admissions.daily <- calculate.daily.counts.from.proportions(emergency.admissions.prediction, emergency.admissions.per.weekday)
+emergency.admissions.prediction.daily <- calculate.daily.counts.from.proportions(emergency.admissions.prediction, emergency.admissions.per.weekday) %>%
+  select(date, Method.of.Admission,daily.count)
+# resource pools
+emergency.admissions.prediction.per.day.per.resource.pool <- calculate.resource_pool.count.from.proportions(emergency.admissions.prediction.daily,emergency.resource_pool.proportions) %>%
+  select(date, Method.of.Admission,Resource.Pool.name, count)
+
