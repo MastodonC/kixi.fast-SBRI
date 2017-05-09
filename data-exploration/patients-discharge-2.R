@@ -343,11 +343,13 @@ ggplot(data=last_palliative_discharge_pred, aes(x=date, y=daily_count, group=0))
 ## Join all groups of discharge and total discharges together in one df
 all_discharges_pred <- rename(last_discharge_pred, all_discharges = daily_count) %>%
                        full_join(rename(last_normal_discharge_pred, normal_discharge = daily_count), 
-                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"), na.fill=0) %>%
+                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
                        full_join(rename(last_transfer_discharge_pred, external_transfer = daily_count), 
-                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"), na.fill=0) %>%
+                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date")) %>%
                        full_join(rename(last_palliative_discharge_pred, palliative_deceased = daily_count), 
-                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"), na.fill=0)
+                                 by=c("Year.of.Discharge", "Week.of.Discharge", "date"))
 
-#all_discharges_pred$total <- apply(all_discharges_pred, c("normal_discharge", "external_transfer", 
-#                                                         "palliative_deceased"), sum)
+all_discharges_pred[is.na(all_discharges_pred)] <- 0 # Replace NAs by "0"
+
+all_discharges_pred$adjustement_factor <- all_discharges_pred$all_discharges / (all_discharges_pred$normal_discharge + all_discharges_pred$external_transfer + all_discharges_pred$palliative_deceased)
+
