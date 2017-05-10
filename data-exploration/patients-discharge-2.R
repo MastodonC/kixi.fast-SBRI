@@ -13,6 +13,12 @@ remove_first_and_last <- function(dataframe) {
   head(dataframe[-1,], -1) # remove first and last row
 }
 
+add_column_with_value_to <- function(dataframe, colname, value) {
+  column <- rep(value, nrow(dataframe))
+  dataframe[ , colname] <- column
+  dataframe
+}
+
 calculate.weekly.disch.from.proportions <- function(weekly.data, proportions.data) {
   bind_rows(mutate(weekly.data, day = 1),
             mutate(weekly.data, day = 2),
@@ -31,6 +37,18 @@ calculate.weekly.disch.from.proportions <- function(weekly.data, proportions.dat
     mutate(Discharge.weekdays = weekdays(date, abbreviate = FALSE)) %>%
     inner_join(proportions.data) %>%
     mutate(daily_count = weekly_count * proportions)
+}
+
+
+calculate.resource_pool.count.from.proportions <- function(daily.data, proportions.data) {
+  bind_rows(mutate(daily.data, Resource.Pool.name = "Elderly Care"),
+            mutate(daily.data, Resource.Pool.name = "Medical"),
+            mutate(daily.data, Resource.Pool.name = "Palliative Care"),
+            mutate(daily.data, Resource.Pool.name = "Surgical"),
+            mutate(daily.data, Resource.Pool.name = "Unscheduled Care"),
+            mutate(daily.data, Resource.Pool.name = "Women and Child")) %>%
+    inner_join(proportions.data) %>%
+    mutate(count = daily_count * proportions)
 }
 
 ### Data
@@ -381,3 +399,34 @@ palliative_dish_daily <- weekly_discharges_pred %>%
                          rename(weekly_count = palliative_deceased_adjusted) %>%
                          calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
                          select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+## Break down daily predictions into resource predictions
+daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
+                                                                                  resource_discharge_proportions) %>%
+                                   select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
+                                   add_column_with_value_to("discharge_group", "Normal Discharge")
+
+daily_transfer_disch_per_resource <- calculate.resource_pool.count.from.proportions(external_dish_daily, 
+                                                                                    resource_discharge_proportions) %>%
+                                     select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
+                                     add_column_with_value_to("discharge_group", "External Transfer")
+
+daily_palliative_disch_per_resource <- calculate.resource_pool.count.from.proportions(palliative_dish_daily, 
+                                                                                      resource_discharge_proportions) %>%
+                                       select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
+                                       add_column_with_value_to("discharge_group", "Palliative/Deceased")
+
+## Merge all predictions together and with historical data
+historical_discharges <- exits_per_speciality %>%
+                         group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, discharge_group) %>%
+                         arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                         summarise(count = n()) %>%
+                         rename(date = Date.of.Discharge)
+
+discharge_predictions <- bind_rows(daily_normal_disch_per_resource, daily_transfer_disch_per_resource) %>%
+                         bind_rows(daily_palliative_disch_per_resource) %>%
+                         bind_rows(historical_discharges) %>%
+                         mutate(count = round(count, digits = 2)) %>%
+                         arrange(Year.of.Discharge, Week.of.Discharge, date)
+
+write.csv(discharge_predictions, file = "patients_discharge_historic_and_predictions.csv", row.names = F)
