@@ -48,7 +48,7 @@ calculate.resource_pool.count.from.proportions <- function(daily.data, proportio
             mutate(daily.data, Resource.Pool.name = "Unscheduled Care"),
             mutate(daily.data, Resource.Pool.name = "Women and Child")) %>%
     inner_join(proportions.data) %>%
-    mutate(count = as.integer(daily.count * proportion))
+    mutate(count = daily.count * proportion)
 }
 
 
@@ -82,7 +82,7 @@ patient.admissions <- left_join(patient.admissions, resource_pool.specialties, b
 
 # group by day, resource pool and admission type, and plot over time
 # first per resource pool and day
-# patients.per.day <- tally(group_by(patient.admissions, Date.of.Admission, Resource.Pool.name)) %>%
+#patients.per.day <- tally(group_by(patient.admissions, Date.of.Admission, Resource.Pool.name)) %>%
 #                     dcast(Date.of.Admission ~ Resource.Pool.name) %>%
 #                     setNames(c("Date.of.Admission","elderly","medical","palliative","surgical","unscheduled","women.child"))
 # patients.per.day <- all_na_to_0(patients.per.day)
@@ -153,8 +153,8 @@ emergency.admissions.wk <- filter(patient.admissions, Method.of.Admission.Catego
   remove_first_and_last_n(1)
 
 emergency.admissions.model <- arima(emergency.admissions.wk$weekly.count, order = c(1,1,1))
-#emergency.admissions.forecast <- forecast(emergency.admissions.model, level = c(95), h = prediction.length)
-#autoplot(emergency.admissions.forecast) # to see confidence interval on prediction
+emergency.admissions.forecast <- forecast(emergency.admissions.model, level = c(95), h = prediction.length)
+autoplot(emergency.admissions.forecast) # to see confidence interval on prediction
 emergency.admissions.prediction <- predict(emergency.admissions.model, n.ahead = prediction.length)
 emergency.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
                                            Week.of.Admission = (last.week+1):(last.week+prediction.length),
@@ -236,28 +236,107 @@ all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Meth
          "Elective Admission" = elective/ratio.to.total,
          "Other Admission" = other/ratio.to.total) %>%
   select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
-  melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission", value.name = c("weekly.count"))
+  melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission.Category", value.name = c("weekly.count"))
 
 # now we need to re-separate, split up by weekday and resource pool.
 # either per admission type.
 # emergency admissions
-# Resource pool proportions
-emergency.admissions.prediction <- filter(all.admissions, Method.of.Admission == "Emergency Admission")
+## Resource pool proportions
+emergency.admissions.prediction <- filter(all.admissions, Method.of.Admission.Category == "Emergency Admission")
 emergency.admissions <- filter(patient.admissions, Method.of.Admission.Category == "Emergency Admission")
 emergency.resource_pool.proportions <- group_by(emergency.admissions, Resource.Pool.name) %>%
   tally() %>%
   mutate(total = nrow(emergency.admissions)) %>%
   mutate(proportion = n/total) %>%
   select(Resource.Pool.name, proportion)
-# weekdays
+## weekdays
 emergency.admissions.per.weekday <- group_by(emergency.admissions, Admission.Weekday) %>%
   tally() %>%
   mutate(total = nrow(emergency.admissions)) %>%
   mutate(proportion = n/total) %>%
   select(Admission.Weekday, proportion)
 emergency.admissions.prediction.daily <- calculate.daily.counts.from.proportions(emergency.admissions.prediction, emergency.admissions.per.weekday) %>%
-  select(date, Method.of.Admission,daily.count)
-# resource pools
+  select(date, Method.of.Admission.Category,daily.count)
+## resource pools
 emergency.admissions.prediction.per.day.per.resource.pool <- calculate.resource_pool.count.from.proportions(emergency.admissions.prediction.daily,emergency.resource_pool.proportions) %>%
-  select(date, Method.of.Admission,Resource.Pool.name, count)
+  select(date, Method.of.Admission.Category,Resource.Pool.name, count)
+## double check: sum everything and see if it adds up to week totals
+emergency.weekly.totals.check <- mutate(emergency.admissions.prediction.per.day.per.resource.pool,
+                                        Week.of.Admission = format(date, "%U"),
+                                        Year.of.Admission = format(date, "%Y")) %>%
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  summarize(total = sum(count)) %>%
+  full_join(emergency.admissions.prediction) %>%
+  select(Year.of.Admission, Week.of.Admission, total, weekly.count)
+# matches.
 
+# maternity admissions
+maternity.admissions.prediction <- filter(all.admissions, Method.of.Admission.Category == "Maternity Admission")
+maternity.admissions <- filter(patient.admissions, Method.of.Admission.Category == "Maternity Admission")
+maternity.resource_pool.proportions <- group_by(maternity.admissions, Resource.Pool.name) %>%
+  tally() %>%
+  mutate(total = nrow(maternity.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Resource.Pool.name, proportion)
+## weekdays
+maternity.admissions.per.weekday <- group_by(maternity.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(maternity.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+maternity.admissions.prediction.daily <- calculate.daily.counts.from.proportions(maternity.admissions.prediction, maternity.admissions.per.weekday) %>%
+  select(date, Method.of.Admission.Category,daily.count)
+## resource pools
+maternity.admissions.prediction.per.day.per.resource.pool <- calculate.resource_pool.count.from.proportions(maternity.admissions.prediction.daily,maternity.resource_pool.proportions) %>%
+  select(date, Method.of.Admission.Category,Resource.Pool.name, count)
+
+# elective admissions
+elective.admissions.prediction <- filter(all.admissions, Method.of.Admission.Category == "Elective Admission")
+elective.admissions <- filter(patient.admissions, Method.of.Admission.Category == "Elective Admission")
+elective.resource_pool.proportions <- group_by(elective.admissions, Resource.Pool.name) %>%
+  tally() %>%
+  mutate(total = nrow(elective.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Resource.Pool.name, proportion)
+## weekdays
+elective.admissions.per.weekday <- group_by(elective.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(elective.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+elective.admissions.prediction.daily <- calculate.daily.counts.from.proportions(elective.admissions.prediction, elective.admissions.per.weekday) %>%
+  select(date, Method.of.Admission.Category,daily.count)
+## resource pools
+elective.admissions.prediction.per.day.per.resource.pool <- calculate.resource_pool.count.from.proportions(elective.admissions.prediction.daily,elective.resource_pool.proportions) %>%
+  select(date, Method.of.Admission.Category,Resource.Pool.name, count)
+
+# other admissions
+other.admissions.prediction <- filter(all.admissions, Method.of.Admission.Category == "Other Admission")
+other.admissions <- filter(patient.admissions, Method.of.Admission.Category == "Other Admission")
+other.resource_pool.proportions <- group_by(other.admissions, Resource.Pool.name) %>%
+  tally() %>%
+  mutate(total = nrow(other.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Resource.Pool.name, proportion)
+## weekdays
+other.admissions.per.weekday <- group_by(other.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(other.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+other.admissions.prediction.daily <- calculate.daily.counts.from.proportions(other.admissions.prediction, other.admissions.per.weekday) %>%
+  select(date, Method.of.Admission.Category,daily.count)
+## resource pools
+other.admissions.prediction.per.day.per.resource.pool <- calculate.resource_pool.count.from.proportions(other.admissions.prediction.daily,other.resource_pool.proportions) %>%
+  select(date, Method.of.Admission.Category,Resource.Pool.name, count)
+
+# add it all together
+all.admissions.predictions <- bind_rows(emergency.admissions.prediction.per.day.per.resource.pool , maternity.admissions.prediction.per.day.per.resource.pool) %>%
+  bind_rows(elective.admissions.prediction.per.day.per.resource.pool) %>%
+  bind_rows(other.admissions.prediction.per.day.per.resource.pool) %>%
+  rename(Date.of.Admission = date)
+all.admissions.data <- group_by(patient.admissions, Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name) %>%
+                       summarize(count = n())
+all.admissions.result <- bind_rows(all.admissions.predictions, all.admissions.data) %>%
+                         arrange(Date.of.Admission)
+write.csv(all.admissions.result, file=admissions.result.path, row.names=F)
