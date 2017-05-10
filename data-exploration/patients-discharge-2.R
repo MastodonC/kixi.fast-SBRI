@@ -362,3 +362,22 @@ test_adjustements <- test_adjustements[,c("Year.of.Discharge", "Week.of.Discharg
 weekly_discharges_pred <- weekly_discharges_pred[,c("Year.of.Discharge", "Week.of.Discharge", "all_discharges", 
                                               "normal_discharge_adjusted", "external_transfer_adjusted",
                                               "palliative_deceased_adjusted")]
+
+## Break down weekly predictions into daily predictions
+normal_dish_daily <- weekly_discharges_pred %>%
+                      select(Year.of.Discharge, Week.of.Discharge, normal_discharge_adjusted) %>%
+                      rename(weekly_count = normal_discharge_adjusted) %>%
+                      calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                      select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+external_dish_daily <- weekly_discharges_pred %>%
+                       select(Year.of.Discharge, Week.of.Discharge, external_transfer_adjusted) %>%
+                       rename(weekly_count = external_transfer_adjusted) %>%
+                       calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                       select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+palliative_dish_daily <- weekly_discharges_pred %>%
+                         select(Year.of.Discharge, Week.of.Discharge, palliative_deceased_adjusted) %>%
+                         rename(weekly_count = palliative_deceased_adjusted) %>%
+                         calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                         select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
