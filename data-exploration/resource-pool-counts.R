@@ -51,11 +51,41 @@ elderly.care.counts <- filter(patients.entry.exit.per.resource_pool, Resource.Po
                        arrange(Date) %>%
                        mutate(cumulative.entries = cumsum(entry.count),
                               cumulative.exits = cumsum(exit.count),
-                              count = cumulative.entries - cumulative.exits) #%>%
-                       #select(Date, count)
+                              count = cumulative.entries - cumulative.exits) %>%
+                       select(Date, count)
 # heuristic to choose the number of records to drop: first row where it goes down again, last row where it goes up.
 # or check length of stay for this resource pool
 elderly.care.lengths <- quantile(filter(patient.data.with.resource_pool, Resource.Pool.name == "Elderly Care" & is.na(length.of.stay) == 0)$length.of.stay)[4] %>%
                         as.integer()
-# assumption: using the 75% x 1.5 gives us most people
-#elderly.care.counts <- head(elderly.care.counts, -1.5*elderly.care.lengths)
+# assumption: using the 75% x 1.5 gives us most people (as in most people that were in the ward at the time have left)
+elderly.care.counts <- elderly.care.counts[-1:as.integer(-1.5*elderly.care.lengths),]
+
+ggplot(data = elderly.care.counts, aes(x=Date, y=count, group = 1)) +
+  geom_line() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) # upward trend? is that possible?
+plot.ts(diff(elderly.care.counts$count))
+acf(elderly.care.counts$count)
+acf(diff(elderly.care.counts$count)) # not really
+elderly.care.counts.prediction.model <- arima(elderly.care.counts$count, order = c(1,1,1))
+
+# ward counts
+patient.entry.per.ward <- group_by(patient.data, Date.of.Ward.Entry, Ward.Name) %>%
+  summarize(entry.count = n()) %>%
+  rename(Date = Date.of.Ward.Entry)
+patient.exit.per.ward <- filter(patient.data, is.na(Date.of.Ward.Exit) == 0) %>% # remove all records with no date of exit for this, assume they haven't left
+  group_by(Date.of.Ward.Exit, Ward.Name) %>%
+  summarize(exit.count = n()) %>%
+  rename(Date = Date.of.Ward.Exit)
+patients.entry.exit.per.ward <- left_join(patient.entry.per.ward, patient.exit.per.ward) %>%
+  all_na_to_0
+
+ward.counts <-  ungroup(patients.entry.exit.per.ward) %>%
+  group_by(Ward.Name) %>%
+  arrange(Ward.Name,Date) %>%
+  mutate(cumulative.entries = cumsum(entry.count),
+         cumulative.exits = cumsum(exit.count),
+         count = cumulative.entries - cumulative.exits) # %>%
+  select(Ward.Name, Date, count)
+
+ward.counts.horizontal <- dcast(ward.counts, Date ~ Ward.Name) %>%
+                          all_na_to_0()
