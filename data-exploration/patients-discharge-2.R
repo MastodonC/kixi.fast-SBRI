@@ -2,6 +2,7 @@ require(dplyr)
 require(reshape2)
 require(ggplot2)
 require(lubridate)
+require(forecast)
 source("paths.R")
 
 ## This script will look at patients exiting the hospital at the end of a stay.
@@ -264,6 +265,13 @@ weekly_exits_model <- arima(weekly_exits$weekly_count, order = c(1,0,0))
 weekly_exits_prediction <-predict(weekly_exits_model,n.ahead=prediction.length)
 weekly_exits_pred <- weekly_exits_prediction$pred[1:prediction.length]
 plot.ts(c(weekly_exits$weekly_count, weekly_exits_pred))
+# Add confidence interval (95%)
+weekly_pred_with_ci <- forecast.Arima(weekly_exits_model, 20) %>%
+                       as.data.frame()
+colnames(weekly_pred_with_ci) <- c("weekly_count", "low_80", "high_80", "low_95", "high_95")
+weekly_pred_with_ci <- weekly_pred_with_ci %>%
+                       select(weekly_count, low_95, high_95)
+
 # create predictions df
 last.year <- max(weekly_exits$Year.of.Discharge)
 last.week <- as.integer(last(weekly_exits$Week.of.Discharge))
