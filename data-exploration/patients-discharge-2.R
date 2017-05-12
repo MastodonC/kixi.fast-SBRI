@@ -268,9 +268,8 @@ plot.ts(c(weekly_exits$weekly_count, weekly_exits_pred))
 # Add confidence interval (95%)
 weekly_pred_with_ci <- forecast.Arima(weekly_exits_model, 20) %>%
                        as.data.frame()
-colnames(weekly_pred_with_ci) <- c("weekly_count", "low_80", "high_80", "low_95", "high_95")
-weekly_pred_with_ci <- weekly_pred_with_ci %>%
-                       select(weekly_count, low_95, high_95)
+colnames(weekly_pred_with_ci) <- c("weekly_count", "low_80", "high_80", "lower (95%)", "upper (95%)")
+weekly_pred_with_ci <- weekly_pred_with_ci[,c("weekly_count", "lower (95%)", "upper (95%)")]
 
 # create predictions df
 last.year <- max(weekly_exits$Year.of.Discharge)
@@ -281,6 +280,11 @@ disch_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.leng
                     weekly_count = weekly_count,
                     Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                     Year.of.Discharge = as.character(Year.of.Discharge))
+disch_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                               Week.of.Discharge = (last.week+1):(last.week+prediction.length)),
+                       Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                       Year.of.Discharge = as.character(Year.of.Discharge)) %>%
+                bind_cols(weekly_pred_with_ci)
 # Looking at discharge groups
 patients_weekly_exit <- patients_exit_hospital %>%
                         group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
@@ -302,16 +306,25 @@ weekly_normal <- weekly_normal[,c("Year.of.Discharge", "Week.of.Discharge", "wee
 # arima
 weekly.normal.model <- arima(weekly_normal$weekly_count, order = c(1,0,0))
 weekly.normal.prediction <-predict(weekly.normal.model,n.ahead=prediction.length)
-weekly.normal.admissions.pred <- weekly.normal.prediction$pred[1:prediction.length]
-plot.ts(c(weekly_normal$weekly_count, weekly.normal.admissions.pred))
+weekly.normal.discharges.pred <- weekly.normal.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_normal$weekly_count, weekly.normal.discharges.pred))
+# Add confidence interval (95%)
+weekly_normal_pred_with_ci <- forecast.Arima(weekly.normal.model, 20) %>%
+                              as.data.frame()
+colnames(weekly_normal_pred_with_ci) <- c("weekly_count", "low_80", "high_80", "lower (95%)", "upper (95%)")
+weekly_normal_pred_with_ci <- weekly_normal_pred_with_ci[,c("weekly_count", "lower (95%)", "upper (95%)")]
 # create df
 disch_normal_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
                                Week.of.Discharge = (last.week+1):(last.week+prediction.length),
-                               weekly_count = weekly.normal.admissions.pred),
+                               weekly_count = weekly.normal.discharges.pred),
                     weekly_count = weekly_count,
                     Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                     Year.of.Discharge = as.character(Year.of.Discharge))
-
+disch_normal_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                              Week.of.Discharge = (last.week+1):(last.week+prediction.length)),
+                              Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                              Year.of.Discharge = as.character(Year.of.Discharge)) %>%
+                       bind_cols(weekly_normal_pred_with_ci)
 # Weekly External Transfer Discharge group
 weekly_transfer <- filter(patients_weekly_exit, discharge_group == "External Transfer")
 weekly_transfer <- remove_first_and_last(weekly_transfer)
@@ -324,16 +337,25 @@ weekly_transfer <- weekly_transfer[,c("Year.of.Discharge", "Week.of.Discharge", 
 # arima
 weekly.transfer.model <- arima(weekly_transfer$weekly_count, order = c(1,0,0))
 weekly.transfer.prediction <-predict(weekly.transfer.model,n.ahead=prediction.length)
-weekly.transfer.admissions.pred <- weekly.transfer.prediction$pred[1:prediction.length]
-plot.ts(c(weekly_transfer$weekly_count, weekly.transfer.admissions.pred))
+weekly.transfer.discharges.pred <- weekly.transfer.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_transfer$weekly_count, weekly.transfer.discharges.pred))
+# Add confidence interval (95%)
+weekly_transfer_pred_with_ci <- forecast.Arima(weekly.transfer.model, 20) %>%
+                                as.data.frame()
+colnames(weekly_transfer_pred_with_ci) <- c("weekly_count", "low_80", "high_80", "lower (95%)", "upper (95%)")
+weekly_transfer_pred_with_ci <- weekly_transfer_pred_with_ci[,c("weekly_count", "lower (95%)", "upper (95%)")]
 # create df
 disch_transfer_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
                                       Week.of.Discharge = (last.week+1):(last.week+prediction.length),
-                                      weekly_count = weekly.transfer.admissions.pred),
+                                      weekly_count = weekly.transfer.discharges.pred),
                              weekly_count = weekly_count,
                              Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                              Year.of.Discharge = as.character(Year.of.Discharge))
-
+disch_transfer_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                  Week.of.Discharge = (last.week+1):(last.week+prediction.length)),
+                       Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                       Year.of.Discharge = as.character(Year.of.Discharge)) %>%
+                       bind_cols(weekly_transfer_pred_with_ci)
 # Weekly Deaths or Palliative Care Discharge group
 weekly_palliative <- filter(patients_weekly_exit, discharge_group == "Palliative/Deceased")
 weekly_palliative <- remove_first_and_last(weekly_palliative)
@@ -346,15 +368,25 @@ weekly_palliative <- weekly_palliative[,c("Year.of.Discharge", "Week.of.Discharg
 # arima
 weekly.palliative.model <- arima(weekly_palliative$weekly_count, order = c(1,0,0))
 weekly.palliative.prediction <-predict(weekly.palliative.model,n.ahead=prediction.length)
-weekly.palliative.admissions.pred <- weekly.palliative.prediction$pred[1:prediction.length]
-plot.ts(c(weekly_palliative$weekly_count, weekly.palliative.admissions.pred))
+weekly.palliative.discharges.pred <- weekly.palliative.prediction$pred[1:prediction.length]
+plot.ts(c(weekly_palliative$weekly_count, weekly.palliative.discharges.pred))
+# Add confidence interval (95%)
+weekly_palliative_pred_with_ci <- forecast.Arima(weekly.palliative.model, 20) %>%
+                                  as.data.frame()
+colnames(weekly_palliative_pred_with_ci) <- c("weekly_count", "low_80", "high_80", "lower (95%)", "upper (95%)")
+weekly_palliative_pred_with_ci <- weekly_palliative_pred_with_ci[,c("weekly_count", "lower (95%)", "upper (95%)")]
 # create df
 disch_palliative_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
                                       Week.of.Discharge = (last.week+1):(last.week+prediction.length),
-                                      weekly_count = weekly.palliative.admissions.pred),
+                                      weekly_count = weekly.palliative.discharges.pred),
                                 weekly_count = weekly_count,
                                 Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
                                 Year.of.Discharge = as.character(Year.of.Discharge))
+disch_palliative_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                             Week.of.Discharge = (last.week+1):(last.week+prediction.length)),
+                                  Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                                  Year.of.Discharge = as.character(Year.of.Discharge)) %>%
+                           bind_cols(weekly_palliative_pred_with_ci)
 
 ### Data reconciliation to match weekly totals
 ## Join all groups of discharge and total discharges together in one df
@@ -388,6 +420,19 @@ test_adjustements <- test_adjustements[,c("Year.of.Discharge", "Week.of.Discharg
 weekly_discharges_pred <- weekly_discharges_pred[,c("Year.of.Discharge", "Week.of.Discharge", "all_discharges", 
                                               "normal_discharge_adjusted", "external_transfer_adjusted",
                                               "palliative_deceased_adjusted")]
+
+## Join predictions with confidence intervals
+hist_weekly_discharges <- patients_exit_hospital %>%
+                          group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
+                          arrange(Year.of.Discharge, Week.of.Discharge) %>%
+                          summarise(weekly_count = n())
+
+weekly_discharges_pred_with_ci <- hist_weekly_discharges %>%
+                                  bind_rows(mutate(disch_normal_pred_ci, discharge_group = "Normal Discharge")) %>%
+                                  bind_rows(mutate(disch_transfer_pred_ci, discharge_group = "External Transfer")) %>%
+                                  bind_rows(mutate(disch_palliative_pred_ci, discharge_group = "Palliative/Deceased"))
+
+write.csv(weekly_discharges_pred_with_ci, file = "weekly_discharges_historic_and_predictions.csv", row.names = F)
 
 ## Break down weekly predictions into daily predictions
 normal_dish_daily <- weekly_discharges_pred %>%
