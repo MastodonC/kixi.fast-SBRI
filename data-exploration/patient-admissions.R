@@ -393,3 +393,4 @@ all.admissions.data <- group_by(patient.admissions, Date.of.Admission, Method.of
 all.admissions.result <- bind_rows(all.admissions.predictions, all.admissions.data) %>%
                          arrange(Date.of.Admission)
 write.csv(all.admissions.result, file=admissions.result.path, row.names=F)
+
