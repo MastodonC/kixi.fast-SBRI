@@ -19,6 +19,7 @@ weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
+    Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
     Date.of.Ward.Entry = as.Date(Date.of.Ward.Entry.with.Time,format="%d-%b-%Y %H:%M"),
     Date.of.Ward.Exit = as.Date(Date.of.Ward.Exit.with.Time,format="%d-%b-%Y %H:%M"),
     Week.of.Ward.Entry = format(Date.of.Ward.Entry, "%U"),
@@ -89,3 +90,24 @@ ward.counts <-  ungroup(patients.entry.exit.per.ward) %>%
 
 ward.counts.horizontal <- dcast(ward.counts, Date ~ Ward.Name) %>%
                           all_na_to_0()
+ward.counts.horizontal <- cbind(ward.counts.horizontal, rowSums(ward.counts.horizontal[,2:ncol(ward.counts.horizontal)]))
+# check totals per day in hospital: one record per patient per visit contains all info we need
+patient.visits <- filter(patient.data, Mode.of.Entry.to.Ward == "ADM")
+patient.admissions.per.day <- patient.visits %>%
+                             group_by(Date.of.Admission) %>%
+                             arrange(Date.of.Admission) %>%
+                             summarize(arrival.count = n()) %>%
+                             mutate(Date = Date.of.Admission)
+patient.discharges.per.day <- group_by(patient.visits, Date.of.Discharge) %>%
+                              arrange(Date.of.Discharge) %>%
+                              summarize(departure.count = n()) %>%
+                              mutate(Date = Date.of.Discharge)
+patient.admissions.and.discharges <- left_join(patient.admissions.per.day, patient.discharges.per.day)
+patient.counts <- mutate(patient.admissions.and.discharges,                        
+                         cumulative.arrivals = cumsum(arrival.count),
+                         cumulative.departures = cumsum(departure.count),
+                         count = cumulative.arrivals - cumulative.departures) %>%
+                  select(Date, count)
+plot.ts(patient.counts$count)
+
+
