@@ -154,14 +154,15 @@ emergency.admissions.wk <- filter(patient.admissions, Method.of.Admission.Catego
 
 emergency.admissions.model <- arima(emergency.admissions.wk$weekly.count, order = c(1,1,1))
 emergency.admissions.forecast <- forecast(emergency.admissions.model, level = c(95), h = prediction.length)
-autoplot(emergency.admissions.forecast) # to see confidence interval on prediction
+#autoplot(emergency.admissions.forecast) # to see confidence interval on prediction
 emergency.admissions.prediction <- predict(emergency.admissions.model, n.ahead = prediction.length)
-emergency.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
-                                           Week.of.Admission = (last.week+1):(last.week+prediction.length),
-                                           weekly.count = emergency.admissions.prediction$pred[1:prediction.length]),
-                                weekly.count = as.integer(weekly.count),
-                                Week.of.Admission = sprintf("%02d", Week.of.Admission),
-                                Year.of.Admission = as.character(Year.of.Admission))
+emergency.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                          Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                          weekly.count = emergency.admissions.prediction$pred[1:prediction.length],
+                                                          lower = emergency.admissions.forecast$lower[1:prediction.length],
+                                                          upper = emergency.admissions.forecast$upper[1:prediction.length]),
+                                           Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                           Year.of.Admission = as.character(Year.of.Admission))
 #emergency.admissions <- bind_rows(emergency.admissions.wk, emergency.admissions.prediction.data)
 emergency.admissions <- emergency.admissions.prediction.data
 
@@ -172,12 +173,14 @@ maternity.admissions.wk <- filter(patient.admissions, Method.of.Admission.Catego
   summarise(weekly.count=n()) %>%
   remove_first_and_last_n(1)
 maternity.admissions.model <- arima(maternity.admissions.wk$weekly.count, order = c(1,1,1))
-#maternity.admissions.forecast <- forecast(maternity.admissions.model, level = c(95), h = prediction.length)
+maternity.admissions.forecast <- forecast(maternity.admissions.model, level = c(95), h = prediction.length)
 #autoplot(maternity.admissions.forecast) # to see confidence interval on prediction
 maternity.admissions.prediction <- predict(maternity.admissions.model, n.ahead = prediction.length)
 maternity.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
                                                           Week.of.Admission = (last.week+1):(last.week+prediction.length),
-                                                          weekly.count = maternity.admissions.prediction$pred[1:prediction.length]),
+                                                          weekly.count = maternity.admissions.prediction$pred[1:prediction.length],
+                                                          lower = maternity.admissions.forecast$lower[1:prediction.length],
+                                                          upper = maternity.admissions.forecast$upper[1:prediction.length]),
                                                weekly.count = as.integer(weekly.count),
                                                Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                                Year.of.Admission = as.character(Year.of.Admission))
@@ -191,12 +194,14 @@ other.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category =
   summarise(weekly.count=n()) %>%
   remove_first_and_last_n(1)
 other.admissions.model <- arima(other.admissions.wk$weekly.count, order = c(1,1,1))
-#other.admissions.forecast <- forecast(other.admissions.model, level = c(95), h = prediction.length)
+other.admissions.forecast <- forecast(other.admissions.model, level = c(95), h = prediction.length)
 #autoplot(other.admissions.forecast) # to see confidence interval on prediction
 other.admissions.prediction <- predict(other.admissions.model, n.ahead = prediction.length)
 other.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
                                                           Week.of.Admission = (last.week+1):(last.week+prediction.length),
-                                                          weekly.count = other.admissions.prediction$pred[1:prediction.length]),
+                                                          weekly.count = other.admissions.prediction$pred[1:prediction.length],
+                                                          lower = other.admissions.forecast$lower[1:prediction.length],
+                                                          upper = other.admissions.forecast$upper[1:prediction.length]),
                                                weekly.count = as.integer(weekly.count),
                                                Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                                Year.of.Admission = as.character(Year.of.Admission))
@@ -210,12 +215,14 @@ elective.admissions.wk <- filter(patient.admissions, Method.of.Admission.Categor
   summarise(weekly.count=n()) %>%
   remove_first_and_last_n(1)
 elective.admissions.model <- arima(elective.admissions.wk$weekly.count, order = c(1,1,1))
-#elective.admissions.forecast <- forecast(elective.admissions.model, level = c(95), h = prediction.length)
+elective.admissions.forecast <- forecast(elective.admissions.model, level = c(95), h = prediction.length)
 #autoplot(elective.admissions.forecast) # to see confidence interval on prediction
 elective.admissions.prediction <- predict(elective.admissions.model, n.ahead = prediction.length)
 elective.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,prediction.length),
                                                       Week.of.Admission = (last.week+1):(last.week+prediction.length),
-                                                      weekly.count = elective.admissions.prediction$pred[1:prediction.length]),
+                                                      weekly.count = elective.admissions.prediction$pred[1:prediction.length],
+                                                      lower = elective.admissions.forecast$lower[1:prediction.length],
+                                                      upper = elective.admissions.forecast$upper[1:prediction.length]),
                                            weekly.count = as.integer(weekly.count),
                                            Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                            Year.of.Admission = as.character(Year.of.Admission))
@@ -223,7 +230,7 @@ elective.admissions.prediction.data <- mutate(data.frame(Year.of.Admission = rep
 elective.admissions <- elective.admissions.prediction.data
 
 # sum all the predictions and find factor to make them equal to total
-all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Method.of.Admission", "emergency"),
+all.admissions.scaling <- bind_rows(add_column_with_value_to(emergency.admissions, "Method.of.Admission", "emergency"),
                             add_column_with_value_to(maternity.admissions, "Method.of.Admission", "maternity")) %>%
   bind_rows(add_column_with_value_to(other.admissions, "Method.of.Admission", "other")) %>%
   bind_rows(add_column_with_value_to(elective.admissions, "Method.of.Admission", "elective")) %>%
@@ -234,9 +241,55 @@ all.admissions <- bind_rows(add_column_with_value_to(emergency.admissions, "Meth
          "Emergency Admission" = emergency/ratio.to.total,
          "Maternity Admission" = maternity/ratio.to.total,
          "Elective Admission" = elective/ratio.to.total,
-         "Other Admission" = other/ratio.to.total) %>%
+         "Other Admission" = other/ratio.to.total) 
+all.admissions.ratios <- select(all.admissions.scaling, Year.of.Admission, Week.of.Admission, ratio.to.total)
+all.admissions <- all.admissions.scaling %>%
   select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
   melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission.Category", value.name = c("weekly.count"))
+all.admissions.lower <- bind_rows(add_column_with_value_to(emergency.admissions, "Method.of.Admission", "emergency"),
+                                    add_column_with_value_to(maternity.admissions, "Method.of.Admission", "maternity")) %>%
+  bind_rows(add_column_with_value_to(other.admissions, "Method.of.Admission", "other")) %>%
+  bind_rows(add_column_with_value_to(elective.admissions, "Method.of.Admission", "elective")) %>%
+  bind_rows(add_column_with_value_to(total.admissions, "Method.of.Admission", "total"))  %>%
+  dcast(Year.of.Admission + Week.of.Admission ~ Method.of.Admission, value.var = c("lower")) %>%
+  left_join(all.admissions.ratios) %>%
+  mutate(
+         "Emergency Admission" = emergency/ratio.to.total,
+         "Maternity Admission" = maternity/ratio.to.total,
+         "Elective Admission" = elective/ratio.to.total,
+         "Other Admission" = other/ratio.to.total) %>%
+  select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
+  melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission.Category", value.name = c("lower"))
+all.admissions.upper <- bind_rows(add_column_with_value_to(emergency.admissions, "Method.of.Admission", "emergency"),
+                                  add_column_with_value_to(maternity.admissions, "Method.of.Admission", "maternity")) %>%
+  bind_rows(add_column_with_value_to(other.admissions, "Method.of.Admission", "other")) %>%
+  bind_rows(add_column_with_value_to(elective.admissions, "Method.of.Admission", "elective")) %>%
+  bind_rows(add_column_with_value_to(total.admissions, "Method.of.Admission", "total"))  %>%
+  dcast(Year.of.Admission + Week.of.Admission ~ Method.of.Admission, value.var = c("upper")) %>%
+  left_join(all.admissions.ratios) %>%
+  mutate(
+    "Emergency Admission" = emergency/ratio.to.total,
+    "Maternity Admission" = maternity/ratio.to.total,
+    "Elective Admission" = elective/ratio.to.total,
+    "Other Admission" = other/ratio.to.total) %>%
+  select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
+  melt(id = c("Year.of.Admission", "Week.of.Admission"), variable.name = "Method.of.Admission.Category", value.name = c("upper"))
+
+all.admissions.confidence.interval <- full_join(all.admissions, all.admissions.lower) %>%
+                                      full_join(all.admissions.upper) %>%
+                                      mutate(weekly.count = round(weekly.count, digits=2),
+                                             "lower (95%)" = round(lower, digits=2),
+                                             "upper (95%)" = round(upper, digits=2)) %>%
+                                      select(one_of("Year.of.Admission", "Week.of.Admission", "Method.of.Admission.Category", "weekly.count", "lower (95%)", "upper (95%)"))
+all.admissions.full <- bind_rows(mutate(emergency.admissions.wk, Method.of.Admission.Category = "Emergency Admission"), 
+                                 mutate(maternity.admissions.wk, Method.of.Admission.Category = "Maternity Admission")) %>%
+                             bind_rows(mutate(elective.admissions.wk, Method.of.Admission.Category = "Elective Admission")) %>%
+                             bind_rows(mutate(other.admissions.wk, Method.of.Admission.Category = "Other Admission")) %>%
+  bind_rows(all.admissions.confidence.interval) %>%
+  arrange(Year.of.Admission, Week.of.Admission, Method.of.Admission.Category)
+all.admissions.full <- all.admissions.full[,c(1,2,4,3,5,6)]
+
+write.csv(all.admissions.full,file=admissions.confidence.interval.path, row.names=F)
 
 # now we need to re-separate, split up by weekday and resource pool.
 # either per admission type.
