@@ -109,7 +109,7 @@ patient.admissions <- filter(patient.data, Mode.of.Entry.to.Ward == "ADM")
 
 # reconciliation to find resource pool (DUMMY FOR NOW)
 resource_pool.specialties <- read.csv(resource_pool.specialties.path, stringsAsFactors = F,na.strings=c("","NA"))
-patient.admissions <- left_join(patient.admissions, resource_pool.specialties, by=c("Specialty.Description.on.Ward.Entry" = "PAS.name")) 
+patient.admissions <- left_join(patient.admissions, resource_pool.specialties, by=c("Specialty.Description.on.Ward.Entry" = "PAS.name"))
 
 # group by day, resource pool and admission type, and plot over time
 # first per resource pool and day
@@ -117,43 +117,43 @@ patient.admissions <- left_join(patient.admissions, resource_pool.specialties, b
 #                     dcast(Date.of.Admission ~ Resource.Pool.name) %>%
 #                     setNames(c("Date.of.Admission","elderly","medical","palliative","surgical","unscheduled","women.child"))
 # patients.per.day <- all_na_to_0(patients.per.day)
-# 
-# ggplot(patients.per.day, aes(Date.of.Admission)) + 
+#
+# ggplot(patients.per.day, aes(Date.of.Admission)) +
 #   geom_line(aes(y = patients.per.day$elderly, colour = "Elderly Care")) +
 #   geom_line(aes(y = patients.per.day$medical, colour = "Medical")) +
 #   geom_line(aes(y = patients.per.day$palliative, colour = "Palliative Care")) +
 #   geom_line(aes(y = patients.per.day$surgical, colour = "Surgical")) +
 #   geom_line(aes(y = patients.per.day$unscheduled, colour = "Unscheduled Care")) +
 #   geom_line(aes(y = patients.per.day$women.child, colour = "Women and Child"))
-# 
+#
 # acf(patients.per.day$elderly)
 # acf(diff(patients.per.day$elderly)) # no cycles
 # acf(diff(patients.per.day$unscheduled)) # nope
-# 
+#
 # acf(patients.per.day$medical) # 7 day cycle
 # acf(patients.per.day$palliative) # 7 day cycle
 # acf(patients.per.day$surgical)
 # pacf(patients.per.day$surgical) # possible 7 day cycle, however memory effect
 # acf(patients.per.day$women.child) # might be 7 day cycle
-# 
+#
 # patients.per.week <- tally(group_by(patient.admissions, Year.Week, Resource.Pool.name)) %>%
 #   dcast(Year.Week ~ Resource.Pool.name) %>%
 #   setNames(c("Year.Week","elderly","medical","palliative","surgical","unscheduled","women.child"))
 # patients.per.week <- all_na_to_0(patients.per.week)
-# 
-# ggplot(patients.per.week, aes(Year.Week)) + 
+#
+# ggplot(patients.per.week, aes(Year.Week)) +
 #   geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1)) +
 #   geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1)) +
 #   geom_line(aes(y = patients.per.week$palliative, colour = "Palliative Care", group=1)) +
 #   geom_line(aes(y = patients.per.week$surgical, colour = "Surgical", group=1)) +
 #   geom_line(aes(y = patients.per.week$unscheduled, colour = "Unscheduled Care", group=1)) +
-#   geom_line(aes(y = patients.per.week$women.child, colour = "Women and Child", group=1)) + 
+#   geom_line(aes(y = patients.per.week$women.child, colour = "Women and Child", group=1)) +
 #   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
-# 
-# ggplot(patients.per.week, aes(Year.Week)) + 
+#
+# ggplot(patients.per.week, aes(Year.Week)) +
 #   geom_line(aes(y = patients.per.week$elderly, colour = "Elderly Care", group=1))
 # acf(patients.per.week$elderly) #nope
-# ggplot(patients.per.week, aes(Year.Week)) + 
+# ggplot(patients.per.week, aes(Year.Week)) +
 #   geom_line(aes(y = patients.per.week$medical, colour = "Medical", group=1))
 # acf(patients.per.week$medical)
 
@@ -273,7 +273,7 @@ all.admissions.scaling <- bind_rows(add_column_with_value_to(emergency.admission
          "Emergency Admission" = emergency/ratio.to.total,
          "Maternity Admission" = maternity/ratio.to.total,
          "Elective Admission" = elective/ratio.to.total,
-         "Other Admission" = other/ratio.to.total) 
+         "Other Admission" = other/ratio.to.total)
 all.admissions.ratios <- select(all.admissions.scaling, Year.of.Admission, Week.of.Admission, ratio.to.total)
 all.admissions <- all.admissions.scaling %>%
   select(one_of("Year.of.Admission", "Week.of.Admission", "Emergency Admission", "Maternity Admission", "Elective Admission", "Other Admission")) %>%
@@ -313,7 +313,7 @@ all.admissions.confidence.interval <- full_join(all.admissions, all.admissions.l
                                              "lower (95%)" = round(lower, digits=2),
                                              "upper (95%)" = round(upper, digits=2)) %>%
                                       select(one_of("Year.of.Admission", "Week.of.Admission", "Method.of.Admission.Category", "weekly.count", "lower (95%)", "upper (95%)"))
-all.admissions.full <- bind_rows(mutate(emergency.admissions.wk, Method.of.Admission.Category = "Emergency Admission"), 
+all.admissions.full <- bind_rows(mutate(emergency.admissions.wk, Method.of.Admission.Category = "Emergency Admission"),
                                  mutate(maternity.admissions.wk, Method.of.Admission.Category = "Maternity Admission")) %>%
                              bind_rows(mutate(elective.admissions.wk, Method.of.Admission.Category = "Elective Admission")) %>%
                              bind_rows(mutate(other.admissions.wk, Method.of.Admission.Category = "Other Admission")) %>%
@@ -419,12 +419,14 @@ other.admissions.prediction.per.day.per.resource.pool <- calculate.resource_pool
 all.admissions.predictions <- bind_rows(emergency.admissions.prediction.per.day.per.resource.pool , maternity.admissions.prediction.per.day.per.resource.pool) %>%
   bind_rows(elective.admissions.prediction.per.day.per.resource.pool) %>%
   bind_rows(other.admissions.prediction.per.day.per.resource.pool) %>%
-  rename(Date.of.Admission = date)
+  rename(Date.of.Admission = date) %>%
+  mutate(count = round(count, digits = 2))
 all.admissions.data <- group_by(patient.admissions, Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name) %>%
                        summarize(count = n())
 all.admissions.result <- bind_rows(all.admissions.predictions, all.admissions.data) %>%
                          arrange(Date.of.Admission)
 write.csv(all.admissions.result, file=admissions.result.path, row.names=F)
+
 
 # Calculate proportions of admission per resource and ward
 ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
@@ -481,13 +483,13 @@ adm_palliative_proportions <- adm_resource_palliative %>%
 medical_resource_ward <- all.admissions.predictions %>%
                          filter(Resource.Pool.name == "Medical") %>%
                          calculate.ward.count.from.proportions(adm_medical_proportions) %>%
-                         select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name, 
+                         select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name,
                                 Ward.Name, ward.count)
 # Surgical
 surgical_resource_ward <- all.admissions.predictions %>%
                           filter(Resource.Pool.name == "Surgical") %>%
                           calculate.ward.count.from.proportions(adm_surgical_proportions) %>%
-                          select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name, 
+                          select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name,
                                  Ward.Name, ward.count)
 # Women and Child
 wac_resource_ward <- all.admissions.predictions %>%
@@ -540,7 +542,7 @@ errors <- filter(compare_resource_counts, abs(compare_resource_counts$resource_c
 write.csv(all.admissions.method.resource.ward, file="admission-predictions-per-method-resource-ward.csv", row.names = F)
 
 # Add historical data
-all.admissions.data.ward <- group_by(patient.admissions, Date.of.Admission, Method.of.Admission.Category, 
+all.admissions.data.ward <- group_by(patient.admissions, Date.of.Admission, Method.of.Admission.Category,
                                      Resource.Pool.name, Ward.Name) %>%
                             summarize(ward.count = n())
 
@@ -812,7 +814,7 @@ resources_ward_pred <-  bind_rows(medical.admissions.day, surgical.admissions.da
                         bind_rows(palliat.admissions.day)
 
 compare_resource_ward_counts <- merge(check_resource_ward_counts, resources_ward_pred)
-errors_resource_ward <- filter(compare_resource_ward_counts, 
+errors_resource_ward <- filter(compare_resource_ward_counts,
                                abs(compare_resource_ward_counts$resource.count - compare_resource_ward_counts$daily.count) > 0.01)
 # 0 records in errors_resource_ward ! It means it all adds up :)
 
@@ -822,7 +824,7 @@ write.csv(all.admissions.per.resource.ward, file = "admission-predictions-per-re
 # Add historical data
 all.admissions.data.resource.ward <- group_by(patient.admissions, Date.of.Admission, Resource.Pool.name, Ward.Name) %>%
                                      summarize(ward.count = n())
-  
+
 all.admissions.data.pred.resource.ward <- bind_rows(all.admissions.data.resource.ward, all.admissions.per.resource.ward)
 
 write.csv(all.admissions.data.pred.resource.ward, file = "admission-historic-and-predictions-per-resource-ward.csv",
