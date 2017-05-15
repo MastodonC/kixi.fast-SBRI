@@ -483,3 +483,18 @@ discharge_predictions <- bind_rows(daily_normal_disch_per_resource, daily_transf
                          arrange(Year.of.Discharge, Week.of.Discharge, date)
 
 write.csv(discharge_predictions, file = "patients_discharge_historic_and_predictions.csv", row.names = F)
+
+
+## Looking at Discharges and wards
+ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
+                 "Antrim Outpatients Department", "A3h Medical", "Trolley Waits In Day Procedure", "Recovery Area Antrim", "Renal Unit Antrim Hospital", "Operating Theatres", "Closed Do Not Use", "Cardiac Procedure Room Level B", "Day Surgery Unit",
+                 "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
+                 "B5 Closed From 03/10/16")
+
+discharges_per_ward <- patients_exit_hospital %>%
+                       filter(!Ward.Name %in% ward.ignore) %>%
+                       group_by(Ward.Name) %>%
+                       summarise(count = n())
+
+ggplot(data=discharges_per_ward, aes(x=reorder(Ward.Name,-count), y=count)) +
+  geom_bar(stat="identity") + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
