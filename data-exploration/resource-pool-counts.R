@@ -26,7 +26,9 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
     Year.of.Ward.Entry = format(Date.of.Ward.Entry, "%Y"),
     Week.of.Ward.Exit = format(Date.of.Ward.Exit, "%U"),
     Year.of.Ward.Exit = format(Date.of.Ward.Exit, "%Y"),
-    length.of.stay = as.integer(Date.of.Ward.Exit - Date.of.Ward.Entry)
+    length.of.stay = as.integer(Date.of.Ward.Exit - Date.of.Ward.Entry),
+    age.group = as.character(cut(Age, breaks=c(-1,10,20,30,40,50,60,70,80,90,Inf),
+                                 labels=c('0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80-90', 'Over 90')))
     )
 
 # reconciliation to find resource pool (DUMMY FOR NOW)
@@ -85,12 +87,14 @@ ward.counts <-  ungroup(patients.entry.exit.per.ward) %>%
   arrange(Ward.Name,Date) %>%
   mutate(cumulative.entries = cumsum(entry.count),
          cumulative.exits = cumsum(exit.count),
-         count = cumulative.entries - cumulative.exits) # %>%
+         ward.count = cumulative.entries - cumulative.exits) # %>%
   select(Ward.Name, Date, count)
 
 ward.counts.horizontal <- dcast(ward.counts, Date ~ Ward.Name) %>%
                           all_na_to_0()
-ward.counts.horizontal <- cbind(ward.counts.horizontal, rowSums(ward.counts.horizontal[,2:ncol(ward.counts.horizontal)]))
+ward.counts.horizontal <- cbind(ward.counts.horizontal, rowSums(ward.counts.horizontal[,2:ncol(ward.counts.horizontal)])) %>%
+  rename("rowSums(ward.counts.horizontal[, 2:ncol(ward.counts.horizontal)])" = total.patients)
+acf(ward.counts.horizontal[,3])
 # check totals per day in hospital: one record per patient per visit contains all info we need
 patient.visits <- filter(patient.data, Mode.of.Entry.to.Ward == "ADM")
 patient.admissions.per.day <- patient.visits %>%
@@ -109,5 +113,28 @@ patient.counts <- mutate(patient.admissions.and.discharges,
                          count = cumulative.arrivals - cumulative.departures) %>%
                   select(Date, count)
 plot.ts(patient.counts$count)
+ward.patient.count.check <- full_join(patient.counts, ward.counts.horizontal)
+
+
+# check daily proportions on wards
+# "ignore" list:
+# 
+ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
+                 "Antrim Outpatients Department", "A3h Medical", "Trolley Waits In Day Procedure", "Recovery Area Antrim", "Renal Unit Antrim Hospital", "Operating Theatres", "Closed Do Not Use", "Cardiac Procedure Room Level B", "Day Surgery Unit",
+                 "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
+                 "B5 Closed From 03/10/16")
+patient.ward.proportions <- left_join(ward.counts, patient.counts, by=c("Date")) %>%
+                            filter(!(Ward.Name %in% ward.ignore)) %>%
+                            mutate(proportion = ward.count/count)
+# df1 = 25 - 1
+# df2 = 740 - (25 - 1)
+ggplot(patient.ward.proportions, aes(Ward.Name, proportion)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+closed.or.not <- filter(patient.data, Ward.Name == "B5 Closed From 03/10/16") %>%
+  arrange(Date.of.Ward.Entry) %>%
+  select(Date.of.Ward.Entry) # couple in december?
+
 
 
