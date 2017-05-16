@@ -131,7 +131,28 @@ patient.ward.proportions <- left_join(ward.counts, patient.counts, by=c("Date"))
 ggplot(patient.ward.proportions, aes(Ward.Name, proportion)) +
   geom_boxplot() +
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+# not 100% conclusive: some have pretty wide margins
+# check per resource pool
+# one would expect a quasi-match per resource pool
+elderly.care.data <- filter(patient.data.with.resource_pool, Resource.Pool.name == "Elderly Care")
+elderly.care.entry.ward <- group_by(elderly.care.data, Date.of.Ward.Entry, Ward.Name) %>%
+                           summarize(entry.count = n()) %>%
+                           rename(Date = Date.of.Ward.Entry)
 
+elderly.care.exit.ward <- filter(elderly.care.data, is.na(Date.of.Ward.Exit) == 0) %>% # remove all records with no date of exit for this, assume they haven't left
+  group_by(Date.of.Ward.Exit, Ward.Name) %>%
+  summarize(exit.count = n()) %>%
+  rename(Date = Date.of.Ward.Exit)
+elderly.care.per.ward <- left_join(elderly.care.entry.ward, elderly.care.exit.ward) %>%
+  all_na_to_0()
+elderly.care.per.ward.counts <- mutate(elderly.care.per.ward,                        
+                                cumulative.entries = cumsum(entry.count),
+                                cumulative.exits = cumsum(exit.count),
+                                count = cumulative.entries - cumulative.exits) %>%
+  select(Date, count)
+# NOTE: if we decide to go with proportions, normalizing things so we have proportions that add up to one
+
+# probably no predictions for this one, so recallibration
 closed.or.not <- filter(patient.data, Ward.Name == "B5 Closed From 03/10/16") %>%
   arrange(Date.of.Ward.Entry) %>%
   select(Date.of.Ward.Entry) # couple in december?
