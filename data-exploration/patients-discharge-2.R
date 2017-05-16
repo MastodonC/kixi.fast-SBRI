@@ -145,6 +145,18 @@ ggplot(data=discharge_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + ge
 
 weekday_discharge_proportions <- discharge_per_weekday %>%
                                  mutate(proportions = weekday_count / total_discharges)
+
+# All discharges per ward per weekday
+discharge_ward_wkday <- patients_exit_hospital %>%
+                        group_by(Discharge.weekdays, Ward.Name) %>%
+                        summarize(weekday_count = n()) %>%
+                        mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+                        arrange(weekday.ordered)
+
+ggplot(discharge_ward_wkday, aes(x = weekday.ordered, y = weekday_count, fill = Ward.Name, label = weekday_count)) +
+  geom_bar(stat = "identity") +
+  geom_text(size = 3, position = position_stack(vjust = 0.5))
+
 # => ALL DISCHARGES WEEKDAY PROPORTIONS: *weekday_discharge_proportions*
 
 ## Weekdays - Discharge groups
@@ -197,6 +209,49 @@ ggplot(exit_spe_per_weekday, aes(x = weekday.ordered, y = weekday_count, fill = 
   geom_bar(stat = "identity") +
   geom_text(size = 3, position = position_stack(vjust = 0.5))
 
+# Discharges per resource/ward/weekday
+# Medical
+dish_resource_medical <- filter(exits_per_speciality, Resource.Pool.name == "Medical")
+disch_medical_proportions_wkday <- dish_resource_medical %>%
+                                   group_by(Discharge.weekdays, Ward.Name) %>%
+                                   summarize(weekday_count = n()) %>%
+                                   mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+                                   mutate(ward_proportion = weekday_count / nrow(dish_resource_medical)) %>%
+                                   arrange(weekday.ordered)
+disch_medical_proportions <- dish_resource_medical %>%
+                             group_by(Ward.Name) %>%
+                             summarize(ward_count = n()) %>%
+                             mutate(ward_proportion = ward_count / nrow(dish_resource_medical))
+# Surgical
+dish_resource_surgical <- filter(exits_per_speciality, Resource.Pool.name == "Surgical")
+disch_surgical_proportions <- dish_resource_surgical %>%
+                              group_by(Ward.Name) %>%
+                              summarize(ward_count = n()) %>%
+                              mutate(ward_proportion = ward_count / nrow(dish_resource_surgical))
+# Women and child
+dish_resource_wac <- filter(exits_per_speciality, Resource.Pool.name == "Women and Child")
+disch_wac_proportions <- dish_resource_wac %>%
+                         group_by(Ward.Name) %>%
+                         summarize(ward_count = n()) %>%
+                         mutate(ward_proportion = ward_count / nrow(dish_resource_wac))
+# Elderly
+dish_resource_elderly <- filter(exits_per_speciality, Resource.Pool.name == "Elderly")
+disch_elderly_proportions <- dish_resource_elderly %>%
+                             group_by(Ward.Name) %>%
+                             summarize(ward_count = n()) %>%
+                             mutate(ward_proportion = ward_count / nrow(dish_resource_elderly))
+# Unscheduled care
+dish_resource_unsched <- filter(exits_per_speciality, Resource.Pool.name == "Unscheduled Care")
+disch_unsched_proportions <- dish_resource_unsched %>%
+                             group_by(Ward.Name) %>%
+                             summarize(ward_count = n()) %>%
+                             mutate(ward_proportion = ward_count / nrow(dish_resource_unsched))
+# Palliative care
+dish_resource_palliative <- filter(exits_per_speciality, Resource.Pool.name == "Palliative Care")
+disch_palliative_proportions <- dish_resource_palliative %>%
+                                group_by(Ward.Name) %>%
+                                summarize(ward_count = n()) %>%
+                                mutate(ward_proportion = ward_count / nrow(dish_resource_palliative))
 # Proportions of resource pools:
 # => ALL DISCHARGES RESOURCE POOLS PROPORTIONS: *resource_discharge_proportions*
 resource_discharge_proportions <- exits_per_speciality %>%
