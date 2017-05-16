@@ -52,6 +52,38 @@ calculate.resource_pool.count.from.proportions <- function(daily.data, proportio
     mutate(count = daily_count * proportions)
 }
 
+### FUNCTION TO BREAK DOWN RESOURCE POOLS INTO WARDS
+# To do: Update the 'mutate' with Ward names and test
+calculate.ward.count.from.proportions <- function(data_per_resource, proportions_data) {
+  bind_rows(mutate(data_per_resource, Ward.Name = "Observation Unit - Antrim"),
+            mutate(data_per_resource, Ward.Name = "Antrim A&E Dept."),
+            mutate(data_per_resource, Ward.Name = "Discharge Lounge Antrim"),
+            mutate(data_per_resource, Ward.Name = "C4 Elective Unit"),
+            mutate(data_per_resource, Ward.Name = "Assessment Medical Unit 1"),
+            mutate(data_per_resource, Ward.Name = "C6 Gen Surgery"),
+            mutate(data_per_resource, Ward.Name = "Antrim (C)Intensive Care"),
+            mutate(data_per_resource, Ward.Name = "A2 Paediatric Ward"),
+            mutate(data_per_resource, Ward.Name = "A1 Stroke/Medical Ward"),
+            mutate(data_per_resource, Ward.Name = "C3 Gastro & General Medicine"),
+            mutate(data_per_resource, Ward.Name = "B4 - General Medicine"),
+            mutate(data_per_resource, Ward.Name = "Genm/Endo/Diab - B2"),
+            mutate(data_per_resource, Ward.Name = "B5b -Use Ward Code Eau For B5b"),
+            mutate(data_per_resource, Ward.Name = "Antrim A4 Medical"),
+            mutate(data_per_resource, Ward.Name = "C7"),
+            mutate(data_per_resource, Ward.Name = "Antrim C1 Gynae"),
+            mutate(data_per_resource, Ward.Name = "C5 Gen Surgery"),
+            mutate(data_per_resource, Ward.Name = "Antrim B3 Ward"),
+            mutate(data_per_resource, Ward.Name = "A3 Medical Ward" ),
+            mutate(data_per_resource, Ward.Name = "Antrim Level B Cardiac Unit"),
+            mutate(data_per_resource, Ward.Name = "Eldery Acute Unit"),
+            mutate(data_per_resource, Ward.Name = "Antrim C2 Maternity Unit"),
+            mutate(data_per_resource, Ward.Name = "Macmillan Unit At Antrim"),
+            mutate(data_per_resource, Ward.Name = "C2 Cotted Ward")
+  ) %>%
+    inner_join(proportions_data) %>%
+    mutate(count = count * ward_proportion)
+}
+
 ### Data
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
@@ -209,45 +241,40 @@ ggplot(exit_spe_per_weekday, aes(x = weekday.ordered, y = weekday_count, fill = 
   geom_bar(stat = "identity") +
   geom_text(size = 3, position = position_stack(vjust = 0.5))
 
-# Discharges per resource/ward/weekday
+# Discharges per resource/ward
+exits_per_spe_for_ward <- filter(exits_per_speciality, !Ward.Name %in% ward.ignore)
 # Medical
-dish_resource_medical <- filter(exits_per_speciality, Resource.Pool.name == "Medical")
-disch_medical_proportions_wkday <- dish_resource_medical %>%
-                                   group_by(Discharge.weekdays, Ward.Name) %>%
-                                   summarize(weekday_count = n()) %>%
-                                   mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
-                                   mutate(ward_proportion = weekday_count / nrow(dish_resource_medical)) %>%
-                                   arrange(weekday.ordered)
+dish_resource_medical <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Medical")
 disch_medical_proportions <- dish_resource_medical %>%
                              group_by(Ward.Name) %>%
                              summarize(ward_count = n()) %>%
                              mutate(ward_proportion = ward_count / nrow(dish_resource_medical))
 # Surgical
-dish_resource_surgical <- filter(exits_per_speciality, Resource.Pool.name == "Surgical")
+dish_resource_surgical <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Surgical")
 disch_surgical_proportions <- dish_resource_surgical %>%
                               group_by(Ward.Name) %>%
                               summarize(ward_count = n()) %>%
                               mutate(ward_proportion = ward_count / nrow(dish_resource_surgical))
 # Women and child
-dish_resource_wac <- filter(exits_per_speciality, Resource.Pool.name == "Women and Child")
+dish_resource_wac <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Women and Child")
 disch_wac_proportions <- dish_resource_wac %>%
                          group_by(Ward.Name) %>%
                          summarize(ward_count = n()) %>%
                          mutate(ward_proportion = ward_count / nrow(dish_resource_wac))
 # Elderly
-dish_resource_elderly <- filter(exits_per_speciality, Resource.Pool.name == "Elderly")
+dish_resource_elderly <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Elderly")
 disch_elderly_proportions <- dish_resource_elderly %>%
                              group_by(Ward.Name) %>%
                              summarize(ward_count = n()) %>%
                              mutate(ward_proportion = ward_count / nrow(dish_resource_elderly))
 # Unscheduled care
-dish_resource_unsched <- filter(exits_per_speciality, Resource.Pool.name == "Unscheduled Care")
+dish_resource_unsched <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Unscheduled Care")
 disch_unsched_proportions <- dish_resource_unsched %>%
                              group_by(Ward.Name) %>%
                              summarize(ward_count = n()) %>%
                              mutate(ward_proportion = ward_count / nrow(dish_resource_unsched))
 # Palliative care
-dish_resource_palliative <- filter(exits_per_speciality, Resource.Pool.name == "Palliative Care")
+dish_resource_palliative <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Palliative Care")
 disch_palliative_proportions <- dish_resource_palliative %>%
                                 group_by(Ward.Name) %>%
                                 summarize(ward_count = n()) %>%
@@ -473,8 +500,8 @@ test_adjustements <- test_adjustements[,c("Year.of.Discharge", "Week.of.Discharg
 # 9 out of 20 records are returned -> visually "all_discharges" are equal to "check_adjustments" to the 4th decimal place
 
 weekly_discharges_pred <- weekly_discharges_pred[,c("Year.of.Discharge", "Week.of.Discharge", "all_discharges", 
-                                              "normal_discharge_adjusted", "external_transfer_adjusted",
-                                              "palliative_deceased_adjusted")]
+                                                    "normal_discharge_adjusted", "external_transfer_adjusted",
+                                                    "palliative_deceased_adjusted")]
 
 ## Join predictions with confidence intervals
 hist_weekly_discharges <- patients_exit_hospital %>%
@@ -523,6 +550,37 @@ daily_palliative_disch_per_resource <- calculate.resource_pool.count.from.propor
                                                                                       resource_discharge_proportions) %>%
                                        select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
                                        add_column_with_value_to("discharge_group", "Palliative/Deceased")
+
+## Break down resource predictions into ward
+pred_by_disch_by_resource <- daily_normal_disch_per_resource %>% 
+                             bind_rows(daily_transfer_disch_per_resource) %>%
+                             bind_rows(daily_palliative_disch_per_resource)
+# -> then break by resource pool
+# Date and Ward name df to merge with the df of discharge predictions per discharge group and resource pool
+ward_data <- exits_per_spe_for_ward %>%
+             group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, 
+                      discharge_group, Ward.Name) %>%
+             select(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, 
+                    discharge_group, Ward.Name)
+# Medical
+medical_per_ward <- pred_by_disch_by_resource %>%
+                    filter(Resource.Pool.name == "Medical")
+# Surgical
+# Women and Child
+# Elderly Care
+# Unscheduled Care
+# Palliative Care
+
+# Normal Discharge
+normal_disch_per_ward <- merge(daily_normal_disch_per_resource, ward_data) %>%
+                         calculate.ward.count.from.proportions(disch_medical_proportions)
+# External Transfer
+transfer_disch_per_ward <- merge(daily_transfer_disch_per_resource, ward_data) %>% 
+                           calculate.ward.count.from.proportions(disch_medical_proportions)
+# Palliative/Deceased
+palliative_disch_per_ward <- merge(daily_palliative_disch_per_resource, ward_data) %>%
+                             calculate.ward.count.from.proportions(disch_medical_proportions)
+
 
 ## Merge all predictions together and with historical data
 historical_discharges <- exits_per_speciality %>%
