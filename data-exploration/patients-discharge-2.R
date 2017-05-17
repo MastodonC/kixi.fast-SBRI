@@ -671,6 +671,18 @@ weekly_disch_resource_pred$elderly_care_adjusted <- weekly_disch_resource_pred$e
 weekly_disch_resource_pred$unscheduled_care_adjusted <- weekly_disch_resource_pred$unscheduled_care * weekly_disch_resource_pred$adjustement_factor
 weekly_disch_resource_pred$palliative_care_adjusted <- weekly_disch_resource_pred$palliative_care * weekly_disch_resource_pred$adjustement_factor
 
+# Checking that the sum of all adjusted columns equals to all_discharged column
+weekly_disch_resource_pred$check_adjustments <- weekly_disch_resource_pred$medical_adjusted + 
+                                                weekly_disch_resource_pred$surgical_adjusted + 
+                                                weekly_disch_resource_pred$women_and_child_adjusted +
+                                                weekly_disch_resource_pred$elderly_care_adjusted + 
+                                                weekly_disch_resource_pred$unscheduled_care_adjusted + 
+                                                weekly_disch_resource_pred$palliative_care_adjusted
+test_adjust <- filter(weekly_disch_resource_pred, all_discharges != check_adjustments)
+test_adjust <- test_adjust[,c("Year.of.Discharge", "Week.of.Discharge", 
+                                          "all_discharges", "check_adjustments")]
+# 15/20 records are in test_adjust, but I can see the values are equal to the 4th decimal point
+
 weekly_disch_resource_pred <- weekly_disch_resource_pred[,c("Year.of.Discharge", "Week.of.Discharge", "medical_adjusted",
                                                             "surgical_adjusted", "women_and_child_adjusted", 
                                                             "elderly_care_adjusted", "unscheduled_care_adjusted", 
@@ -744,6 +756,42 @@ palliat_daily <- weekly_disch_resource_pred %>%
                  rename(weekly_count = palliative_care_adjusted) %>%
                  calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+## Break down weekly resource predictions (NO discharge type) into daily predictions
+ward_resources <- exits_per_spe_for_ward %>%
+                  group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, Ward.Name) %>%
+                  select(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, Ward.Name)
+
+# Medical
+medical_per_ward <- medical_daily %>%
+                    calculate.ward.count.from.proportions(disch_medical_proportions) %>%
+                    #select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                           #discharge_group, Ward.Name, ward_count)
+# Surgical
+surgical_per_ward <- surgical_daily %>%
+                     calculate.ward.count.from.proportions(disch_surgical_proportions) %>%
+                     select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                            discharge_group, Ward.Name, ward_count)
+# Women and Child
+wac_per_ward <- wac_daily %>%
+                calculate.ward.count.from.proportions(disch_wac_proportions) %>%
+                select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                       discharge_group, Ward.Name, ward_count)
+# Elderly Care
+elderly_per_ward <- elderly_daily %>%
+                    calculate.ward.count.from.proportions(disch_elderly_proportions) %>%
+                    select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                           discharge_group, Ward.Name, ward_count)
+# Unscheduled Care
+unsched_per_ward <- unsched_daily %>%
+                    calculate.ward.count.from.proportions(disch_unsched_proportions) %>%
+                    select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                           discharge_group, Ward.Name, ward_count)
+# Palliative Care
+palliative_per_ward <- palliat_daily %>%
+                       calculate.ward.count.from.proportions(disch_palliative_proportions) %>%
+                       select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                       discharge_group, Ward.Name, ward_count)
 
 ## Break down daily predictions into resource predictions
 daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
