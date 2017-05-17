@@ -476,6 +476,138 @@ disch_palliative_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,p
                                   Year.of.Discharge = as.character(Year.of.Discharge)) %>%
                            bind_cols(weekly_palliative_pred_with_ci)
 
+## Weekly predictions per resource pool
+patients_weekly_resources <- exits_per_speciality %>%
+                             group_by(Year.of.Discharge, Week.of.Discharge, Resource.Pool.name) %>%
+                             arrange(Year.of.Discharge, Week.of.Discharge) %>%
+                             summarise(count = n())
+# Medical
+weekly_medic_pool <- filter(patients_weekly_resources, Resource.Pool.name == "Medical")
+weekly_medic_pool <- remove_first_and_last(weekly_medic_pool)
+# acf
+acf(weekly_medic_pool$count)
+plot.ts(weekly_medic_pool$count)
+acf(diff(weekly_medic_pool$count))
+plot.ts(diff(weekly_medic_pool$count))
+weekly_medic_pool <- weekly_medic_pool[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+# arima
+weekly_medic_pool_model <- arima(weekly_medic_pool$count, order = c(1,1,0))
+weekly_medic_pool_prediction <-predict(weekly_medic_pool_model,n.ahead=prediction.length)
+weekly_medic_pool_discharges_pred <- weekly_medic_pool_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_medic_pool$count, weekly_medic_pool_discharges_pred))
+# create df
+disch_medic_pool_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                          Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                          weekly_count = weekly_medic_pool_discharges_pred),
+                               weekly_count = weekly_count,
+                               Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                               Year.of.Discharge = as.character(Year.of.Discharge))
+# Surgical
+weekly_surgic_pool <- filter(patients_weekly_resources, Resource.Pool.name == "Surgical")
+weekly_surgic_pool <- remove_first_and_last(weekly_surgic_pool)
+# acf
+acf(weekly_surgic_pool$count)
+plot.ts(weekly_surgic_pool$count)
+acf(diff(weekly_surgic_pool$count))
+plot.ts(diff(weekly_surgic_pool$count))
+weekly_surgic_pool <- weekly_surgic_pool[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+# arima
+weekly_surgic_pool_model <- arima(weekly_surgic_pool$count, order = c(1,0,0))
+weekly_surgic_pool_prediction <-predict(weekly_surgic_pool_model,n.ahead=prediction.length)
+weekly_surgic_pool_discharges_pred <- weekly_surgic_pool_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_surgic_pool$count, weekly_surgic_pool_discharges_pred))
+# create df
+disch_surgic_pool_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                          Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                          weekly_count = weekly_surgic_pool_discharges_pred),
+                               weekly_count = weekly_count,
+                               Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                               Year.of.Discharge = as.character(Year.of.Discharge))
+# Women and Child
+weekly_wac_pool <- filter(patients_weekly_resources, Resource.Pool.name == "Women and Child")
+weekly_wac_pool <- remove_first_and_last(weekly_wac_pool)
+# acf
+acf(weekly_wac_pool$count)
+plot.ts(weekly_wac_pool$count)
+acf(diff(weekly_wac_pool$count))
+plot.ts(diff(weekly_wac_pool$count))
+weekly_wac_pool <- weekly_wac_pool[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+# arima
+weekly_wac_pool_model <- arima(weekly_wac_pool$count, order = c(1,0,0))
+weekly_wac_pool_prediction <-predict(weekly_wac_pool_model,n.ahead=prediction.length)
+weekly_wac_pool_discharges_pred <- weekly_wac_pool_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_wac_pool$count, weekly_wac_pool_discharges_pred))
+# create df
+disch_wac_pool_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                           Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                           weekly_count = weekly_wac_pool_discharges_pred),
+                                weekly_count = weekly_count,
+                                Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                                Year.of.Discharge = as.character(Year.of.Discharge))
+# Elderly Care
+weekly_elder_pool <- filter(patients_weekly_resources, Resource.Pool.name == "Elderly Care")
+weekly_elder_pool <- remove_first_and_last(weekly_elder_pool)
+# acf
+acf(weekly_elder_pool$count)
+plot.ts(weekly_elder_pool$count)
+acf(diff(weekly_elder_pool$count))
+plot.ts(diff(weekly_elder_pool$count))
+weekly_elder_pool <- weekly_elder_pool[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+# arima
+weekly_elder_pool_model <- arima(weekly_elder_pool$count, order = c(1,0,0))
+weekly_elder_pool_prediction <-predict(weekly_elder_pool_model,n.ahead=prediction.length)
+weekly_elder_pool_discharges_pred <- weekly_elder_pool_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_elder_pool$count, weekly_elder_pool_discharges_pred))
+# create df
+disch_elder_pool_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                        Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                        weekly_count = weekly_elder_pool_discharges_pred),
+                             weekly_count = weekly_count,
+                             Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                             Year.of.Discharge = as.character(Year.of.Discharge))
+# Unscheduled Care
+weekly_unsched_pool <- filter(patients_weekly_resources, Resource.Pool.name == "Unscheduled Care")
+weekly_unsched_pool <- remove_first_and_last(weekly_unsched_pool)
+# acf
+acf(weekly_unsched_pool$count)
+plot.ts(weekly_unsched_pool$count)
+acf(diff(weekly_unsched_pool$count))
+plot.ts(diff(weekly_unsched_pool$count))
+weekly_unsched_pool <- weekly_unsched_pool[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+# arima
+weekly_unsched_pool_model <- arima(weekly_unsched_pool$count, order = c(1,1,0))
+weekly_unsched_pool_prediction <-predict(weekly_unsched_pool_model,n.ahead=prediction.length)
+weekly_unsched_pool_discharges_pred <- weekly_unsched_pool_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_unsched_pool$count, weekly_unsched_pool_discharges_pred))
+# create df
+disch_unsched_pool_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                          Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                          weekly_count = weekly_unsched_pool_discharges_pred),
+                               weekly_count = weekly_count,
+                               Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                               Year.of.Discharge = as.character(Year.of.Discharge))
+# Palliative Care
+weekly_palliat_pool <- filter(patients_weekly_resources, Resource.Pool.name == "Palliative Care")
+weekly_palliat_pool <- remove_first_and_last(weekly_palliat_pool)
+# acf
+acf(weekly_palliat_pool$count)
+plot.ts(weekly_palliat_pool$count)
+acf(diff(weekly_palliat_pool$count))
+plot.ts(diff(weekly_palliat_pool$count))
+weekly_palliat_pool <- weekly_palliat_pool[,c("Year.of.Discharge", "Week.of.Discharge", "count")]
+# arima
+weekly_palliat_pool_model <- arima(weekly_palliat_pool$count, order = c(1,0,0))
+weekly_palliat_pool_prediction <-predict(weekly_palliat_pool_model,n.ahead=prediction.length)
+weekly_palliat_pool_discharges_pred <- weekly_palliat_pool_prediction$pred[1:prediction.length]
+plot.ts(c(weekly_palliat_pool$count, weekly_palliat_pool_discharges_pred))
+# create df
+disch_palliat_pool_pred <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.length),
+                                            Week.of.Discharge = (last.week+1):(last.week+prediction.length),
+                                            weekly_count = weekly_palliat_pool_discharges_pred),
+                                 weekly_count = weekly_count,
+                                 Week.of.Discharge = sprintf("%02d", Week.of.Discharge),
+                                 Year.of.Discharge = as.character(Year.of.Discharge))
+
 ### Data reconciliation to match weekly totals
 ## Join all groups of discharge and total discharges together in one df
 weekly_discharges_pred <- rename(disch_pred, all_discharges = weekly_count) %>%
