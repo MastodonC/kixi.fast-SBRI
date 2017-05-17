@@ -40,6 +40,10 @@ check.change.of.resource_pool <- full_join(patient.data.with.exit.resource_pool,
   filter(Resource.Pool.name.x != Resource.Pool.name.y) %>%
   select(Resource.Pool.name.x, Resource.Pool.name.y)
 
+
+## 1. Research to figure out methodology
+#########################################
+
 patient.with.one.resource_pool <- full_join(patient.data.with.exit.resource_pool, patient.data.with.resource_pool, by=c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit","Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay")) %>%
   filter(Resource.Pool.name.x == Resource.Pool.name.y) %>%
   select(one_of("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit", "Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay", "Resource.Pool.name.x")) %>%
@@ -165,7 +169,10 @@ elderly.care.per.ward.counts <- ungroup(elderly.care.per.ward) %>%
                                        ward.count = cumulative.entries - cumulative.exits) #%>%
                                 select(Date, Ward.Name, ward.count)
 
-stroke.ward.counts <- filter(elderly.care.per.ward, Ward.Name == "A1 Stroke/Medical Ward")                                
+stroke.ward.counts <- filter(elderly.care.per.ward, Ward.Name == "A1 Stroke/Medical Ward") 
+ggplot(data=stroke.ward.counts, aes(Date)) +
+  geom_line(aes(y=entry.count, colour="entry")) +
+  geom_line(aes(y=exit.count, colour="exit"))
                                 
 elderly.care.ward.proportions <- left_join(elderly.care.per.ward.counts, elderly.care.counts, by=c("Date"))  %>%
   filter(is.na(count) == 0) %>% # gets rid of the records at the start which are probably invalid
@@ -213,13 +220,48 @@ ggplot(data = stroke.ward.patients, aes(x = Date.of.Ward.Exit, y = avg.length.of
 stroke.ward.exceeding <- filter(stroke.ward.patients, Date.of.Ward.Exit > Date.of.Discharge) # none
 
 stroke.ward.anomalous.entry.count <- filter(stroke.ward.patients, Date.of.Ward.Entry == "2015-09-12")
-stroke.ward.anomalous.exit.count <- filter(stroke.ward.patients, Date.of.Ward.Exit == "2015-09-12")
+stroke.ward.anomalous.exit.count <- filter(stroke.ward.patients, Date.of.Ward.Exit == "2016-12-28")
 # NOTE: if we decide to go with proportions, normalizing things so we have proportions that add up to one
 
 # probably no predictions for this one, so recallibration
 closed.or.not <- filter(patient.data, Ward.Name == "B5 Closed From 03/10/16") %>%
   arrange(Date.of.Ward.Entry) %>%
   select(Date.of.Ward.Entry) # couple in december?
+
+# remove resource pools from the equation
+relevant.patient.data <- filter(patient.data.with.resource_pool, !(Ward.Name %in% ward.ignore))
+patient.entry.ward <- filter(relevant.patient.data, is.na(Date.of.Ward.Exit) == 0) %>%
+  group_by(Ward.Name, Date.of.Ward.Entry) %>%
+  summarize(entry.count = n()) %>%
+  rename(Date = Date.of.Ward.Entry)
+patient.exit.ward <- filter(relevant.patient.data, is.na(Date.of.Ward.Exit) == 0) %>% # remove all records with no date of exit for this, assume they haven't left
+  group_by(Ward.Name, Date.of.Ward.Exit) %>%
+  summarize(exit.count = n()) %>%
+  rename(Date = Date.of.Ward.Exit)
+patient.per.ward <- full_join(patient.entry.ward, patient.exit.ward) %>%
+  all_na_to_0()
+
+relevant.patient.per.ward.counts <- ungroup(patient.per.ward) %>%
+  arrange(Ward.Name, Date) %>%
+  group_by(Ward.Name) %>%
+  mutate(cumulative.entries = cumsum(entry.count),
+         cumulative.exits = cumsum(exit.count),
+         ward.count = cumulative.entries - cumulative.exits) # %>%
+#  select(Ward.Name, Date, ward.count)
+patient.per.ward.count.horizontal <- dcast(relevant.patient.per.ward.counts,
+                                           Date ~ Ward.Name, value.var = c("ward.count"))
+odd.amounts <- filter(relevant.patient.per.ward.counts, ward.count > 50) 
+
+stroke.ward <- filter(relevant.patient.per.ward.counts, Ward.Name == "A1 Stroke/Medical Ward") %>% arrange(Date)
+plot.ts(stroke.ward$ward.count)
+# this produces sensible numbers!
+acf(stroke.ward$ward.count)
+acf(diff(stroke.ward$ward.count)) # slight weekly cycle in diff
+stroke.ward.weekday.counts <- mutate(stroke.ward, weekday = weekdays(Date, abbreviate = FALSE))
+ggplot(stroke.ward.weekday.counts, aes(weekday, ward.count)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) # not a massively clear difference
+stroke.ward.prediction <- arima(stroke.ward$ward.count, order = c(1,1,0), seasonal=list(order=c(1,0,1),period=7))
 
 
 
