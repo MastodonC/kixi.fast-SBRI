@@ -81,7 +81,7 @@ calculate.ward.count.from.proportions <- function(data_per_resource, proportions
             mutate(data_per_resource, Ward.Name = "C2 Cotted Ward")
   ) %>%
     inner_join(proportions_data) %>%
-    mutate(count = count * ward_proportion)
+    mutate(ward_count = count * ward_proportion)
 }
 
 ### Data
@@ -248,37 +248,43 @@ dish_resource_medical <- filter(exits_per_spe_for_ward, Resource.Pool.name == "M
 disch_medical_proportions <- dish_resource_medical %>%
                              group_by(Ward.Name) %>%
                              summarize(ward_count = n()) %>%
-                             mutate(ward_proportion = ward_count / nrow(dish_resource_medical))
+                             mutate(ward_proportion = ward_count / nrow(dish_resource_medical)) %>%
+                             select(Ward.Name, ward_proportion)
 # Surgical
 dish_resource_surgical <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Surgical")
 disch_surgical_proportions <- dish_resource_surgical %>%
                               group_by(Ward.Name) %>%
                               summarize(ward_count = n()) %>%
-                              mutate(ward_proportion = ward_count / nrow(dish_resource_surgical))
+                              mutate(ward_proportion = ward_count / nrow(dish_resource_surgical)) %>%
+  select(Ward.Name, ward_proportion)
 # Women and child
 dish_resource_wac <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Women and Child")
 disch_wac_proportions <- dish_resource_wac %>%
                          group_by(Ward.Name) %>%
                          summarize(ward_count = n()) %>%
-                         mutate(ward_proportion = ward_count / nrow(dish_resource_wac))
+                         mutate(ward_proportion = ward_count / nrow(dish_resource_wac)) %>%
+                         select(Ward.Name, ward_proportion)
 # Elderly
 dish_resource_elderly <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Elderly")
 disch_elderly_proportions <- dish_resource_elderly %>%
                              group_by(Ward.Name) %>%
                              summarize(ward_count = n()) %>%
-                             mutate(ward_proportion = ward_count / nrow(dish_resource_elderly))
+                             mutate(ward_proportion = ward_count / nrow(dish_resource_elderly)) %>%
+                             select(Ward.Name, ward_proportion)
 # Unscheduled care
 dish_resource_unsched <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Unscheduled Care")
 disch_unsched_proportions <- dish_resource_unsched %>%
                              group_by(Ward.Name) %>%
                              summarize(ward_count = n()) %>%
-                             mutate(ward_proportion = ward_count / nrow(dish_resource_unsched))
+                             mutate(ward_proportion = ward_count / nrow(dish_resource_unsched)) %>%
+                             select(Ward.Name, ward_proportion)
 # Palliative care
 dish_resource_palliative <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Palliative Care")
 disch_palliative_proportions <- dish_resource_palliative %>%
                                 group_by(Ward.Name) %>%
                                 summarize(ward_count = n()) %>%
-                                mutate(ward_proportion = ward_count / nrow(dish_resource_palliative))
+                                mutate(ward_proportion = ward_count / nrow(dish_resource_palliative)) %>%
+                                select(Ward.Name, ward_proportion)
 # Proportions of resource pools:
 # => ALL DISCHARGES RESOURCE POOLS PROPORTIONS: *resource_discharge_proportions*
 resource_discharge_proportions <- exits_per_speciality %>%
@@ -564,23 +570,28 @@ ward_data <- exits_per_spe_for_ward %>%
                     discharge_group, Ward.Name)
 # Medical
 medical_per_ward <- pred_by_disch_by_resource %>%
-                    filter(Resource.Pool.name == "Medical")
+                    filter(Resource.Pool.name == "Medical") %>%
+                    calculate.ward.count.from.proportions(disch_medical_proportions)
 # Surgical
+surgical_per_ward <- pred_by_disch_by_resource %>%
+                     filter(Resource.Pool.name == "Surgical") %>%
+                     calculate.ward.count.from.proportions(disch_surgical_proportions)
 # Women and Child
+wac_per_ward <- pred_by_disch_by_resource %>%
+                filter(Resource.Pool.name == "Women and Child") %>%
+                calculate.ward.count.from.proportions(disch_wac_proportions)
 # Elderly Care
+elderly_per_ward <- pred_by_disch_by_resource %>%
+                    filter(Resource.Pool.name == "Elderly Care") %>%
+                    calculate.ward.count.from.proportions(disch_elderly_proportions)
 # Unscheduled Care
+unsched_per_ward <- pred_by_disch_by_resource %>%
+                    filter(Resource.Pool.name == "Unscheduled Care") %>%
+                    calculate.ward.count.from.proportions(disch_unsched_proportions)
 # Palliative Care
-
-# Normal Discharge
-normal_disch_per_ward <- merge(daily_normal_disch_per_resource, ward_data) %>%
-                         calculate.ward.count.from.proportions(disch_medical_proportions)
-# External Transfer
-transfer_disch_per_ward <- merge(daily_transfer_disch_per_resource, ward_data) %>% 
-                           calculate.ward.count.from.proportions(disch_medical_proportions)
-# Palliative/Deceased
-palliative_disch_per_ward <- merge(daily_palliative_disch_per_resource, ward_data) %>%
-                             calculate.ward.count.from.proportions(disch_medical_proportions)
-
+palliative_per_ward <- pred_by_disch_by_resource %>%
+                       filter(Resource.Pool.name == "Palliative Care") %>%
+                       calculate.ward.count.from.proportions(disch_palliative_proportions)
 
 ## Merge all predictions together and with historical data
 historical_discharges <- exits_per_speciality %>%
