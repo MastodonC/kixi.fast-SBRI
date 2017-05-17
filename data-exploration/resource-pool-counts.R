@@ -35,7 +35,15 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
 ##! Assumption: that we can use specialty on entry to determine resource pool (and not specialty on exit)
 resource_pool.specialties <- read.csv(resource_pool.specialties.path, stringsAsFactors = F,na.strings=c("","NA"))
 patient.data.with.resource_pool <- left_join(patient.data, resource_pool.specialties, by=c("Specialty.Description.on.Ward.Entry" = "PAS.name"))
+patient.data.with.exit.resource_pool <- left_join(patient.data, resource_pool.specialties, by=c("Specialty.on.Exit.of.Ward" = "PAS.name"))
+check.change.of.resource_pool <- full_join(patient.data.with.exit.resource_pool, patient.data.with.resource_pool, by=c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit","Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay")) %>%
+  filter(Resource.Pool.name.x != Resource.Pool.name.y) %>%
+  select(Resource.Pool.name.x, Resource.Pool.name.y)
 
+patient.with.one.resource_pool <- full_join(patient.data.with.exit.resource_pool, patient.data.with.resource_pool, by=c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit","Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay")) %>%
+  filter(Resource.Pool.name.x == Resource.Pool.name.y) %>%
+  select(one_of("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit", "Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay", "Resource.Pool.name.x")) %>%
+  rename(Resource.Pool.name = Resource.Pool.name.x)
 # only count for date of entry, and exclude exit date to avoid counting twice. that works too.
 # group by resource pool and date of entry:
 patient.entry.per.resource_pool <- group_by(patient.data.with.resource_pool, Date.of.Ward.Entry, Resource.Pool.name) %>%
@@ -54,7 +62,7 @@ elderly.care.counts <- filter(patients.entry.exit.per.resource_pool, Resource.Po
                        arrange(Date) %>%
                        mutate(cumulative.entries = cumsum(entry.count),
                               cumulative.exits = cumsum(exit.count),
-                              count = cumulative.entries - cumulative.exits) %>%
+                              count = cumulative.entries - cumulative.exits) #%>%
                        select(Date, count)
 # heuristic to choose the number of records to drop: first row where it goes down again, last row where it goes up.
 # or check length of stay for this resource pool
@@ -66,6 +74,7 @@ elderly.care.counts <- elderly.care.counts[-1:as.integer(-1.5*elderly.care.lengt
 ggplot(data = elderly.care.counts, aes(x=Date, y=count, group = 1)) +
   geom_line() +
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) # upward trend? is that possible?
+plot.ts(elderly.care.counts$count)
 plot.ts(diff(elderly.care.counts$count))
 acf(elderly.care.counts$count)
 acf(diff(elderly.care.counts$count)) # not really
@@ -134,22 +143,77 @@ ggplot(patient.ward.proportions, aes(Ward.Name, proportion)) +
 # not 100% conclusive: some have pretty wide margins
 # check per resource pool
 # one would expect a quasi-match per resource pool
-elderly.care.data <- filter(patient.data.with.resource_pool, Resource.Pool.name == "Elderly Care")
-elderly.care.entry.ward <- group_by(elderly.care.data, Date.of.Ward.Entry, Ward.Name) %>%
+elderly.care.data <- filter(patient.data.with.resource_pool, Resource.Pool.name == "Elderly Care") %>%
+  filter(!(Ward.Name %in% ward.ignore))
+elderly.care.entry.ward <- filter(elderly.care.data, is.na(Date.of.Ward.Exit) == 0) %>%
+                           group_by(Ward.Name, Date.of.Ward.Entry) %>%
                            summarize(entry.count = n()) %>%
                            rename(Date = Date.of.Ward.Entry)
 
 elderly.care.exit.ward <- filter(elderly.care.data, is.na(Date.of.Ward.Exit) == 0) %>% # remove all records with no date of exit for this, assume they haven't left
-  group_by(Date.of.Ward.Exit, Ward.Name) %>%
+  group_by(Ward.Name, Date.of.Ward.Exit) %>%
   summarize(exit.count = n()) %>%
   rename(Date = Date.of.Ward.Exit)
 elderly.care.per.ward <- left_join(elderly.care.entry.ward, elderly.care.exit.ward) %>%
   all_na_to_0()
-elderly.care.per.ward.counts <- mutate(elderly.care.per.ward,                        
-                                cumulative.entries = cumsum(entry.count),
-                                cumulative.exits = cumsum(exit.count),
-                                count = cumulative.entries - cumulative.exits) %>%
-  select(Date, count)
+
+elderly.care.per.ward.counts <- ungroup(elderly.care.per.ward) %>%
+                                arrange(Ward.Name, Date) %>%
+                                group_by(Ward.Name) %>%
+                                mutate(cumulative.entries = cumsum(entry.count),
+                                       cumulative.exits = cumsum(exit.count),
+                                       ward.count = cumulative.entries - cumulative.exits) #%>%
+                                select(Date, Ward.Name, ward.count)
+
+stroke.ward.counts <- filter(elderly.care.per.ward, Ward.Name == "A1 Stroke/Medical Ward")                                
+                                
+elderly.care.ward.proportions <- left_join(elderly.care.per.ward.counts, elderly.care.counts, by=c("Date"))  %>%
+  filter(is.na(count) == 0) %>% # gets rid of the records at the start which are probably invalid
+  filter(!(Ward.Name %in% ward.ignore))  %>%
+  mutate(proportion = ward.count/count)
+ggplot(elderly.care.ward.proportions, aes(Ward.Name, proportion)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+ggplot(elderly.care.per.ward.counts, aes(Ward.Name, ward.count)) +
+  geom_boxplot() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+stroke.ward <- filter(elderly.care.per.ward.counts, Ward.Name == "A1 Stroke/Medical Ward") %>% arrange(Date)
+plot.ts(stroke.ward$ward.count) # goes up beyond bed capacity!
+# do people stay longer?
+stroke.mean.length_of_stay <- filter(elderly.care.data, Ward.Name == "A1 Stroke/Medical Ward") %>%
+                              group_by(Date.of.Ward.Exit) %>%
+                              summarize(avg.length.of.stay = mean(length.of.stay))
+plot.ts(elderly.care.mean.length_of_stay$avg.length.of.stay)
+ggplot(data = elderly.care.mean.length_of_stay, aes(x = Date.of.Ward.Exit, y = avg.length.of.stay)) + geom_point() + geom_smooth()
+# not growing particularly
+
+# how to check whether patients have overlapping patient records:
+#  same patient has several records at the same time in the same ward? 
+stroke.ward.patients.several <- filter(elderly.care.data, Ward.Name == "A1 Stroke/Medical Ward") %>%
+                        group_by(H.C.Encrypted, Date.of.Admission) %>%
+                        summarize(count = n())
+stroke.ward.patients.overlap <- filter(elderly.care.data, Ward.Name == "A1 Stroke/Medical Ward") %>%
+                        left_join(stroke.ward.patients.several) %>%
+                        filter(count > 1) %>%
+                        arrange(H.C.Encrypted, Date.of.Ward.Entry) %>%
+                        select(H.C.Encrypted, Date.of.Ward.Entry, Date.of.Ward.Exit, count) %>%
+                        group_by(H.C.Encrypted) %>%
+                        mutate(next.ward.entry = lead(Date.of.Ward.Entry,1)) %>%
+                        filter(Date.of.Ward.Exit > next.ward.entry)
+# no overlapping as far as I can see
+# checking patients
+stroke.ward.patients <- filter(elderly.care.data, Ward.Name == "A1 Stroke/Medical Ward")  %>%
+                        arrange(Date.of.Ward.Entry)
+stroke.ward.lengths <- arrange(stroke.ward.patients, Date.of.Ward.Exit) %>%
+                        mutate(length.of.stay = as.integer(Date.of.Ward.Exit - Date.of.Ward.Entry)) %>%
+                        group_by(Date.of.Ward.Exit) %>%
+                        summarize(avg.length.of.stay = mean(length.of.stay))
+plot.ts(stroke.ward.patients$avg.length.of.stay)
+ggplot(data = stroke.ward.patients, aes(x = Date.of.Ward.Exit, y = avg.length.of.stay)) + geom_point() + geom_smooth()
+stroke.ward.exceeding <- filter(stroke.ward.patients, Date.of.Ward.Exit > Date.of.Discharge) # none
+
+stroke.ward.anomalous.entry.count <- filter(stroke.ward.patients, Date.of.Ward.Entry == "2015-09-12")
+stroke.ward.anomalous.exit.count <- filter(stroke.ward.patients, Date.of.Ward.Exit == "2015-09-12")
 # NOTE: if we decide to go with proportions, normalizing things so we have proportions that add up to one
 
 # probably no predictions for this one, so recallibration
