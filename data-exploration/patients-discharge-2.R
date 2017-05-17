@@ -640,6 +640,41 @@ test_adjustements <- test_adjustements[,c("Year.of.Discharge", "Week.of.Discharg
 weekly_discharges_pred <- weekly_discharges_pred[,c("Year.of.Discharge", "Week.of.Discharge", "all_discharges", 
                                                     "normal_discharge_adjusted", "external_transfer_adjusted",
                                                     "palliative_deceased_adjusted")]
+## Reconcile weekly predictions per resource pool
+weekly_disch_resource_pred <- rename(disch_pred, all_discharges = weekly_count) %>%
+                              full_join(rename(disch_medic_pool_pred, medical = weekly_count), 
+                                        by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+                              full_join(rename(disch_surgic_pool_pred, surgical = weekly_count), 
+                                        by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+                              full_join(rename(disch_wac_pool_pred, women_and_child = weekly_count), 
+                                        by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+                              full_join(rename(disch_elder_pool_pred, elderly_care = weekly_count), 
+                                        by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+                              full_join(rename(disch_unsched_pool_pred, unscheduled_care = weekly_count), 
+                                        by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+                              full_join(rename(disch_palliat_pool_pred, palliative_care = weekly_count), 
+                                        by=c("Year.of.Discharge", "Week.of.Discharge"))
+
+weekly_disch_resource_pred$sum_disch_types <- weekly_disch_resource_pred$medical + 
+                                              weekly_disch_resource_pred$surgical + 
+                                              weekly_disch_resource_pred$women_and_child +
+                                              weekly_disch_resource_pred$elderly_care + 
+                                              weekly_disch_resource_pred$unscheduled_care + 
+                                              weekly_disch_resource_pred$palliative_care
+
+weekly_disch_resource_pred$adjustement_factor <- weekly_disch_resource_pred$all_discharges / weekly_disch_resource_pred$sum_disch_types
+
+weekly_disch_resource_pred$medical_adjusted <- weekly_disch_resource_pred$medical * weekly_disch_resource_pred$adjustement_factor
+weekly_disch_resource_pred$surgical_adjusted <- weekly_disch_resource_pred$surgical * weekly_disch_resource_pred$adjustement_factor
+weekly_disch_resource_pred$women_and_child_adjusted <- weekly_disch_resource_pred$women_and_child * weekly_disch_resource_pred$adjustement_factor
+weekly_disch_resource_pred$elderly_care_adjusted <- weekly_disch_resource_pred$elderly_care * weekly_disch_resource_pred$adjustement_factor
+weekly_disch_resource_pred$unscheduled_care_adjusted <- weekly_disch_resource_pred$unscheduled_care * weekly_disch_resource_pred$adjustement_factor
+weekly_disch_resource_pred$palliative_care_adjusted <- weekly_disch_resource_pred$palliative_care * weekly_disch_resource_pred$adjustement_factor
+
+weekly_disch_resource_pred <- weekly_disch_resource_pred[,c("Year.of.Discharge", "Week.of.Discharge", "medical_adjusted",
+                                                            "surgical_adjusted", "women_and_child_adjusted", 
+                                                            "elderly_care_adjusted", "unscheduled_care_adjusted", 
+                                                            "palliative_care_adjusted")]
 
 ## Join predictions with confidence intervals
 hist_weekly_discharges <- patients_exit_hospital %>%
