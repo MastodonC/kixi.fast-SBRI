@@ -708,6 +708,43 @@ palliative_dish_daily <- weekly_discharges_pred %>%
                          calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
                          select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
 
+## Break down weekly resource pools predictions into daily predictions
+medical_daily <- weekly_disch_resource_pred %>%
+                 select(Year.of.Discharge, Week.of.Discharge, medical_adjusted) %>%
+                 rename(weekly_count = medical_adjusted) %>%
+                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+surgical_daily <- weekly_disch_resource_pred %>%
+                  select(Year.of.Discharge, Week.of.Discharge, surgical_adjusted) %>%
+                  rename(weekly_count = surgical_adjusted) %>%
+                  calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+wac_daily <- weekly_disch_resource_pred %>%
+             select(Year.of.Discharge, Week.of.Discharge, women_and_child_adjusted) %>%
+             rename(weekly_count = women_and_child_adjusted) %>%
+             calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+             select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+elderly_daily <- weekly_disch_resource_pred %>%
+                 select(Year.of.Discharge, Week.of.Discharge, elderly_care_adjusted) %>%
+                 rename(weekly_count = elderly_care_adjusted) %>%
+                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+unsched_daily <- weekly_disch_resource_pred %>%
+                 select(Year.of.Discharge, Week.of.Discharge, unscheduled_care_adjusted) %>%
+                 rename(weekly_count = unscheduled_care_adjusted) %>%
+                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+palliat_daily <- weekly_disch_resource_pred %>%
+                 select(Year.of.Discharge, Week.of.Discharge, palliative_care_adjusted) %>%
+                 rename(weekly_count = palliative_care_adjusted) %>%
+                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
 ## Break down daily predictions into resource predictions
 daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
                                                                                   resource_discharge_proportions) %>%
@@ -724,7 +761,7 @@ daily_palliative_disch_per_resource <- calculate.resource_pool.count.from.propor
                                        select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
                                        add_column_with_value_to("discharge_group", "Palliative/Deceased")
 
-## Break down resource predictions into ward
+## Break down discharge type / resource pool predictions into ward
 pred_by_disch_by_resource <- daily_normal_disch_per_resource %>% 
                              bind_rows(daily_transfer_disch_per_resource) %>%
                              bind_rows(daily_palliative_disch_per_resource)
