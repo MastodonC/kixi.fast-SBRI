@@ -401,30 +401,42 @@ last.data.date <- patient.per.ward.count.horizontal[nrow(patient.per.ward.count.
 last.year <- max(patient.per.ward.count.horizontal$Year)
 last.week <- as.integer(last(patient.per.ward.count.horizontal$Week))
 
-# a1.medical, a2.paediatric, a3.medical, a4.medical, ae.dept, b3.ward, c1.gynae, c2.maternity, 
-# intensive.care, b.cardiac, assessment.1, b4.general, b5b.eau, c2.cotted, c3.gastro, 
-# c4.elective, c5.surgery, c6.gen, c7, discharge.lounge, elderly.acute, b2, macmillan, obs
-calculate_weekly_ward_prediction <- function(ward.column, arima.order) {
+
+calculate_weekly_ward_prediction <- function(ward.column, ward.name, arima.order) {
   ward.model <- arima(ward.column, order = arima.order)
   print(ward.model)
-  ward.forecast <- forecast(a1.medical.model, level = c(95), h = prediction.length)
-  ward.prediction <- predict(a1.medical.model, n.ahead = prediction.length)
-  ward.pred.data <- mutate(data.frame(Year = rep(last.year,prediction.length),
-                                            Week = (last.week+1):(last.week+prediction.length),
-                                            weekly.count = a1.medical.prediction$pred[1:prediction.length]),
-                                 weekly.count = as.integer(weekly.count),
-                                 Week = sprintf("%02d", Week),
-                                 Year = as.character(Year))  
-  autoplot(ward.forecast)
+  ward.forecast <- forecast(ward.model, level = c(95), h = prediction.length)
+  ward.prediction <- predict(ward.model, n.ahead = prediction.length)
+  ward.pred.data <- data.frame(Year = rep(last.year,prediction.length),
+                               Week = (last.week+1):(last.week+prediction.length))
+  ward.pred.data[,ward.name] <- ward.prediction$pred[1:prediction.length]
+  ward.pred.data <- mutate(ward.pred.data,
+                           Week = sprintf("%02d", Week),
+                           Year = as.character(Year))  
+  # autoplot(ward.forecast)
   ward.pred.data
 }
 
+#initialize
+pred.data <- mutate(data.frame(Year = rep(last.year,prediction.length),
+                               Week = (last.week+1):(last.week+prediction.length)),
+                    Week = sprintf("%02d", Week),
+                    Year = as.character(Year))  
+for (ward in c("a1.medical","a2.paediatric","a3.medical","a4.medical","ae.dept","b3.ward","c1.gynae","c2.maternity", 
+               "intensive.care","b.cardiac","assessment.1","b4.general","b5b.eau","c2.cotted","c3.gastro",
+               "c4.elective","c5.surgery","c6.gen","c7","discharge.lounge","elderly.acute","b2","macmillan","obs")) {
+  print(ward)
+  pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c(ward)], ward, c(1,0,0)))
+}
+# a1.medical, a2.paediatric, a3.medical, a4.medical, ae.dept, b3.ward, c1.gynae, c2.maternity, 
+# intensive.care, b.cardiac, assessment.1, b4.general, b5b.eau, c2.cotted, c3.gastro, 
+# c4.elective, c5.surgery, c6.gen, c7, discharge.lounge, elderly.acute, b2, macmillan, obs
 a1.medical.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a1.medical, c(1,0,0))
-a2.paediatric.prediction.data <- calculate.daily.counts.from.proportions(patient.per.ward.count.horizontal$a2.paediatric, c(1,0,0))
-
-
-
-
+a2.paediatric.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a2.paediatric, c(1,0,1))
+a3.medical.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a3.medical, c(1,0,0))
+a4.medical.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a4.medical, c(1,0,0))
+ae.dept.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$ae.dept, c(1,0,0))
+b3.ward.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c("b3.ward")], c(1,0,0))
 
 a1.medical.number <- nrow(filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward"))
 a1.medical.resource_pool.proportions <- filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward") %>%
