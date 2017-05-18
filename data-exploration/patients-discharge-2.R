@@ -832,6 +832,18 @@ errors_resource_ward <- filter(compare_resource_ward_counts,
 # Save the predictions to file
 write.csv(discharges_per_resource_per_ward, file = "discharge_predictions_per_resource_per_ward.csv", row.names = F)
 
+# Had historical data to those predictions
+hist_disch_per_resource_per_ward <- exits_per_speciality %>%
+                                    group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, 
+                                             Resource.Pool.name, Ward.Name) %>%
+                                    arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                                    summarise(ward_count = n()) %>%
+                                    rename(date = Date.of.Discharge)
+
+hist_and_pred_per_resource_per_ward <- bind_rows(hist_disch_per_resource_per_ward, discharges_per_resource_per_ward)
+# Save to file
+write.csv(hist_and_pred_per_resource_per_ward, file = "discharge_historic_predictions_per_resource_per_ward.csv", row.names = F)
+
 ## Break down daily predictions into resource predictions
 daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
                                                                                   resource_discharge_proportions) %>%
@@ -916,6 +928,19 @@ compare_resource_counts <- merge(check_resource_counts, resources_pred)
 
 errors <- filter(compare_resource_counts, abs(compare_resource_counts$resource_count - compare_resource_counts$count) > 0.01)
 # => errors has 0 records so the results add up :)
+
+# Had historical data to those predictions
+hist_disch_per_ward <- exits_per_speciality %>%
+                       group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, 
+                                discharge_group, Resource.Pool.name, Ward.Name) %>%
+                       arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
+                       summarise(ward_count = n()) %>%
+                       rename(date = Date.of.Discharge)
+
+hist_and_pred_per_ward <- bind_rows(hist_disch_per_ward, disch_per_resource_per_ward)
+# Save to file
+write.csv(hist_and_pred_per_ward, file = "discharge_historic_predictions_per_resource_type_ward.csv", row.names = F)
+
 
 ## Merge all predictions together and with historical data
 historical_discharges <- exits_per_speciality %>%
