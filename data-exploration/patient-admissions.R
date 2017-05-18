@@ -51,6 +51,37 @@ calculate.resource_pool.count.from.proportions <- function(daily.data, proportio
     mutate(count = daily.count * proportion)
 }
 
+### FUNCTION TO BREAK DOWN RESOURCE POOLS INTO WARDS
+calculate.ward.count.from.proportions <- function(data_per_resource, proportions_data) {
+  bind_rows(mutate(data_per_resource, Ward.Name = "Observation Unit - Antrim"),
+            mutate(data_per_resource, Ward.Name = "Antrim A&E Dept."),
+            mutate(data_per_resource, Ward.Name = "Discharge Lounge Antrim"),
+            mutate(data_per_resource, Ward.Name = "C4 Elective Unit"),
+            mutate(data_per_resource, Ward.Name = "Assessment Medical Unit 1"),
+            mutate(data_per_resource, Ward.Name = "C6 Gen Surgery"),
+            mutate(data_per_resource, Ward.Name = "Antrim (C)Intensive Care"),
+            mutate(data_per_resource, Ward.Name = "A2 Paediatric Ward"),
+            mutate(data_per_resource, Ward.Name = "A1 Stroke/Medical Ward"),
+            mutate(data_per_resource, Ward.Name = "C3 Gastro & General Medicine"),
+            mutate(data_per_resource, Ward.Name = "B4 - General Medicine"),
+            mutate(data_per_resource, Ward.Name = "Genm/Endo/Diab - B2"),
+            mutate(data_per_resource, Ward.Name = "B5b -Use Ward Code Eau For B5b"),
+            mutate(data_per_resource, Ward.Name = "Antrim A4 Medical"),
+            mutate(data_per_resource, Ward.Name = "C7"),
+            mutate(data_per_resource, Ward.Name = "Antrim C1 Gynae"),
+            mutate(data_per_resource, Ward.Name = "C5 Gen Surgery"),
+            mutate(data_per_resource, Ward.Name = "Antrim B3 Ward"),
+            mutate(data_per_resource, Ward.Name = "A3 Medical Ward" ),
+            mutate(data_per_resource, Ward.Name = "Antrim Level B Cardiac Unit"),
+            mutate(data_per_resource, Ward.Name = "Eldery Acute Unit"),
+            mutate(data_per_resource, Ward.Name = "Antrim C2 Maternity Unit"),
+            mutate(data_per_resource, Ward.Name = "Macmillan Unit At Antrim"),
+            mutate(data_per_resource, Ward.Name = "C2 Cotted Ward")
+  ) %>%
+    inner_join(proportions_data) %>%
+    mutate(ward_count = count * ward_proportion)
+}
+
 
 prediction.length <- 20
 weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
@@ -394,3 +425,125 @@ all.admissions.result <- bind_rows(all.admissions.predictions, all.admissions.da
                          arrange(Date.of.Admission)
 write.csv(all.admissions.result, file=admissions.result.path, row.names=F)
 
+# Calculate proportions of admission per resource and ward
+ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
+                 "Antrim Outpatients Department", "A3h Medical", "Trolley Waits In Day Procedure", "Recovery Area Antrim", "Renal Unit Antrim Hospital", "Operating Theatres", "Closed Do Not Use", "Cardiac Procedure Room Level B", "Day Surgery Unit",
+                 "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
+                 "B5 Closed From 03/10/16")
+
+admissions_for_valid_wards <- filter(patient.admissions, !Ward.Name %in% ward.ignore)
+# Medical
+adm_resource_medical <- filter(admissions_for_valid_wards, Resource.Pool.name == "Medical")
+adm_medical_proportions <- adm_resource_medical %>%
+                           group_by(Ward.Name) %>%
+                           summarize(ward_count = n()) %>%
+                           mutate(ward_proportion = ward_count / nrow(adm_resource_medical)) %>%
+                           select(Ward.Name, ward_proportion)
+# Surgical
+adm_resource_surgical <- filter(admissions_for_valid_wards, Resource.Pool.name == "Surgical")
+adm_surgical_proportions <- adm_resource_surgical %>%
+                            group_by(Ward.Name) %>%
+                            summarize(ward_count = n()) %>%
+                            mutate(ward_proportion = ward_count / nrow(adm_resource_surgical)) %>%
+                            select(Ward.Name, ward_proportion)
+# Women and child
+adm_resource_wac <- filter(admissions_for_valid_wards, Resource.Pool.name == "Women and Child")
+adm_wac_proportions <- adm_resource_wac %>%
+                       group_by(Ward.Name) %>%
+                       summarize(ward_count = n()) %>%
+                       mutate(ward_proportion = ward_count / nrow(adm_resource_wac)) %>%
+                       select(Ward.Name, ward_proportion)
+# Elderly Care
+adm_resource_elderly <- filter(admissions_for_valid_wards, Resource.Pool.name == "Elderly Care")
+adm_elderly_proportions <- adm_resource_elderly %>%
+                           group_by(Ward.Name) %>%
+                           summarize(ward_count = n()) %>%
+                           mutate(ward_proportion = ward_count / nrow(adm_resource_elderly)) %>%
+                           select(Ward.Name, ward_proportion)
+# Unscheduled Care
+adm_resource_unsched <- filter(admissions_for_valid_wards, Resource.Pool.name == "Unscheduled Care")
+adm_unsched_proportions <- adm_resource_unsched %>%
+                           group_by(Ward.Name) %>%
+                           summarize(ward_count = n()) %>%
+                           mutate(ward_proportion = ward_count / nrow(adm_resource_unsched)) %>%
+                           select(Ward.Name, ward_proportion)
+# Palliative Care
+adm_resource_palliative <- filter(admissions_for_valid_wards, Resource.Pool.name == "Palliative Care")
+adm_palliative_proportions <- adm_resource_palliative %>%
+                              group_by(Ward.Name) %>%
+                              summarize(ward_count = n()) %>%
+                              mutate(ward_proportion = ward_count / nrow(adm_resource_palliative)) %>%
+                              select(Ward.Name, ward_proportion)
+
+# Split admission predictions into resource pools
+# Medical
+medical_resource_ward <- all.admissions.predictions %>%
+                         filter(Resource.Pool.name == "Medical") %>%
+                         calculate.ward.count.from.proportions(adm_medical_proportions) %>%
+                         select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name, 
+                                Ward.Name, ward_count)
+# Surgical
+surgical_resource_ward <- all.admissions.predictions %>%
+                          filter(Resource.Pool.name == "Surgical") %>%
+                          calculate.ward.count.from.proportions(adm_surgical_proportions) %>%
+                          select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name, 
+                                 Ward.Name, ward_count)
+# Women and Child
+wac_resource_ward <- all.admissions.predictions %>%
+                     filter(Resource.Pool.name == "Women and Child") %>%
+                     calculate.ward.count.from.proportions(adm_wac_proportions) %>%
+                     select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name,
+                            Ward.Name, ward_count)
+# Elderly Care
+elderly_resource_ward <- all.admissions.predictions %>%
+                         filter(Resource.Pool.name == "Elderly Care") %>%
+                         calculate.ward.count.from.proportions(adm_elderly_proportions) %>%
+                         select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name,
+                                Ward.Name, ward_count)
+# Unscheduled Care
+unsched_resource_ward <- all.admissions.predictions %>%
+                         filter(Resource.Pool.name == "Unscheduled Care") %>%
+                         calculate.ward.count.from.proportions(adm_unsched_proportions) %>%
+                         select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name,
+                                Ward.Name, ward_count)
+# Palliative Care
+palliative_resource_ward <- all.admissions.predictions %>%
+                            filter(Resource.Pool.name == "Palliative Care") %>%
+                            calculate.ward.count.from.proportions(adm_palliative_proportions) %>%
+                            select(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name,
+                                   Ward.Name, ward_count)
+# Group all resource pools
+all.admissions.method.resource.ward <- bind_rows(medical_resource_ward, surgical_resource_ward) %>%
+                                       bind_rows(wac_resource_ward) %>%
+                                       bind_rows(elderly_resource_ward) %>%
+                                       bind_rows(unsched_resource_ward) %>%
+                                       bind_rows(palliative_resource_ward)
+
+# Check the ward predictions add up to the resource pools predictions
+check_resource_counts <- all.admissions.method.resource.ward %>%
+                         group_by(Date.of.Admission, Method.of.Admission.Category, Resource.Pool.name) %>%
+                         summarise(resource_count = sum(ward_count)) %>%
+                         rename(date = Date.of.Admission)
+
+resources_pred <- emergency.admissions.prediction.per.day.per.resource.pool %>%
+                  bind_rows(maternity.admissions.prediction.per.day.per.resource.pool) %>%
+                  bind_rows(elective.admissions.prediction.per.day.per.resource.pool) %>%
+                  bind_rows(other.admissions.prediction.per.day.per.resource.pool)
+
+compare_resource_counts <- merge(check_resource_counts, resources_pred)
+
+errors <- filter(compare_resource_counts, abs(compare_resource_counts$resource_count - compare_resource_counts$count) > 0.01)
+# 0 records in the errors data frame => all the values add up
+
+# Save to CSV
+write.csv(all.admissions.method.resource.ward, file="admission-predictions-per-method-resource-ward.csv", row.names = F)
+
+# Add historical data
+all.admissions.data.ward <- group_by(patient.admissions, Date.of.Admission, Method.of.Admission.Category, 
+                                     Resource.Pool.name, Ward.Name) %>%
+                            summarize(ward_count = n())
+
+all.admissions.data.pred.ward <- bind_rows(all.admissions.data.ward, all.admissions.method.resource.ward)
+
+# Save to CSV
+write.csv(all.admissions.data.pred.ward, file="admission-historic-and-predictions-per-method-resource-ward.csv", row.names = F)
