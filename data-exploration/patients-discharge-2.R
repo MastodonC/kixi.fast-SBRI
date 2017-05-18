@@ -763,35 +763,74 @@ ward_resources <- exits_per_spe_for_ward %>%
                   select(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, Ward.Name)
 
 # Medical
-medical_per_ward <- medical_daily %>%
-                    calculate.ward.count.from.proportions(disch_medical_proportions) %>%
-                    #select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
-                           #discharge_group, Ward.Name, ward_count)
+medical_resources_per_ward <- medical_daily %>%
+                              add_column_with_value_to("Resource.Pool.name", "Medical") %>%
+                              rename(count = daily_count) %>%
+                              calculate.ward.count.from.proportions(disch_medical_proportions) %>%
+                              select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                                     Ward.Name, ward_count)
 # Surgical
-surgical_per_ward <- surgical_daily %>%
-                     calculate.ward.count.from.proportions(disch_surgical_proportions) %>%
-                     select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
-                            discharge_group, Ward.Name, ward_count)
+surgical_resources_per_ward <- surgical_daily %>%
+                               add_column_with_value_to("Resource.Pool.name", "Surgical") %>%
+                               rename(count = daily_count) %>%
+                               calculate.ward.count.from.proportions(disch_surgical_proportions) %>%
+                               select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                                      Ward.Name, ward_count)
 # Women and Child
-wac_per_ward <- wac_daily %>%
-                calculate.ward.count.from.proportions(disch_wac_proportions) %>%
-                select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
-                       discharge_group, Ward.Name, ward_count)
+wac_resources_per_ward <- wac_daily %>%
+                          add_column_with_value_to("Resource.Pool.name", "Women and Child") %>%
+                          rename(count = daily_count) %>%
+                          calculate.ward.count.from.proportions(disch_wac_proportions) %>%
+                          select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                                 Ward.Name, ward_count)
 # Elderly Care
-elderly_per_ward <- elderly_daily %>%
-                    calculate.ward.count.from.proportions(disch_elderly_proportions) %>%
-                    select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
-                           discharge_group, Ward.Name, ward_count)
+elderly_resources_per_ward <- elderly_daily %>%
+                              add_column_with_value_to("Resource.Pool.name", "Elderly Care") %>%
+                              rename(count = daily_count) %>%
+                              calculate.ward.count.from.proportions(disch_elderly_proportions) %>%
+                              select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                                     Ward.Name, ward_count)
 # Unscheduled Care
-unsched_per_ward <- unsched_daily %>%
-                    calculate.ward.count.from.proportions(disch_unsched_proportions) %>%
-                    select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
-                           discharge_group, Ward.Name, ward_count)
+unsched_resources_per_ward <- unsched_daily %>%
+                              add_column_with_value_to("Resource.Pool.name", "Unscheduled Care") %>%
+                              rename(count = daily_count) %>%
+                              calculate.ward.count.from.proportions(disch_unsched_proportions) %>%
+                              select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                                     Ward.Name, ward_count)
 # Palliative Care
-palliative_per_ward <- palliat_daily %>%
-                       calculate.ward.count.from.proportions(disch_palliative_proportions) %>%
-                       select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
-                       discharge_group, Ward.Name, ward_count)
+palliative_resources_per_ward <- palliat_daily %>%
+                                 add_column_with_value_to("Resource.Pool.name", "Palliative Care") %>%
+                                 rename(count = daily_count) %>%
+                                 calculate.ward.count.from.proportions(disch_palliative_proportions) %>%
+                                 select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, 
+                                        Ward.Name, ward_count)
+
+discharges_per_resource_per_ward <- bind_rows(medical_resources_per_ward, surgical_resources_per_ward) %>%
+                                    bind_rows(wac_resources_per_ward) %>%
+                                    bind_rows(elderly_resources_per_ward) %>%
+                                    bind_rows(unsched_resources_per_ward) %>%
+                                    bind_rows(palliative_resources_per_ward)
+
+# Check the ward results add up at resource pools and discharge type levels
+check_resource_ward_counts <- discharges_per_resource_per_ward %>%
+                              group_by(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name) %>%
+                              summarise(resource_count = sum(ward_count))
+
+resources_ward_pred <- add_column_with_value_to(medical_daily,"Resource.Pool.name", "Medical") %>%
+                       bind_rows(add_column_with_value_to(surgical_daily, "Resource.Pool.name", "Surgical")) %>%
+                       bind_rows(add_column_with_value_to(wac_daily, "Resource.Pool.name", "Women and Child")) %>%
+                       bind_rows(add_column_with_value_to(elderly_daily, "Resource.Pool.name", "Elderly Care")) %>%
+                       bind_rows(add_column_with_value_to(unsched_daily, "Resource.Pool.name", "Unscheduled Care")) %>%
+                       bind_rows(add_column_with_value_to(palliat_daily, "Resource.Pool.name", "Palliative Care"))
+  
+compare_resource_ward_counts <- merge(check_resource_ward_counts, resources_ward_pred)
+
+errors_resource_ward <- filter(compare_resource_ward_counts, 
+                               abs(compare_resource_ward_counts$resource_count - compare_resource_ward_counts$daily_count) > 0.01)
+# No records in the errors df -> all the values per ward add up to the total per resource
+
+# Save the predictions to file
+write.csv(discharges_per_resource_per_ward, file = "discharge_predictions_per_resource_per_ward.csv", row.names = F)
 
 ## Break down daily predictions into resource predictions
 daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
@@ -864,7 +903,7 @@ disch_per_resource_per_ward <- bind_rows(medical_per_ward, surgical_per_ward) %>
                                bind_rows(palliative_per_ward)
 write.csv(disch_per_resource_per_ward, file = "discharge-predictions-ward-level.csv", row.names = F)
 
-# Check the results add up at resource pools and discharge type levels
+# Check the ward results add up at resource pools and discharge type levels
 check_resource_counts <- disch_per_resource_per_ward %>%
                          group_by(Year.of.Discharge, Week.of.Discharge, date, 
                                   discharge_group, Resource.Pool.name) %>%
