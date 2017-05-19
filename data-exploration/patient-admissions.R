@@ -563,9 +563,7 @@ autoplot(medical.admissions.forecast) # to see confidence interval on prediction
 medical.admissions.prediction <- predict(medical.admissions.model, n.ahead = prediction.length)
 medical.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
                                                           Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
-                                                          weekly.count = medical.admissions.prediction$pred[1:prediction.length],
-                                                          lower = medical.admissions.forecast$lower[1:prediction.length],
-                                                          upper = medical.admissions.forecast$upper[1:prediction.length]),
+                                                          weekly.count = medical.admissions.prediction$pred[1:prediction.length]),
                                           Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                           Year.of.Admission = as.character(Year.of.Admission))
 # Surgical
@@ -580,9 +578,7 @@ autoplot(surgical.admissions.forecast) # to see confidence interval on predictio
 surgical.admissions.prediction <- predict(surgical.admissions.model, n.ahead = prediction.length)
 surgical.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
                                                     Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
-                                                    weekly.count = surgical.admissions.prediction$pred[1:prediction.length],
-                                                    lower = surgical.admissions.forecast$lower[1:prediction.length],
-                                                    upper = surgical.admissions.forecast$upper[1:prediction.length]),
+                                                    weekly.count = surgical.admissions.prediction$pred[1:prediction.length]),
                                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                          Year.of.Admission = as.character(Year.of.Admission))
 # Women and Child
@@ -597,9 +593,7 @@ autoplot(wac.admissions.forecast) # to see confidence interval on prediction
 wac.admissions.prediction <- predict(wac.admissions.model, n.ahead = prediction.length)
 wac.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
                                                      Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
-                                                     weekly.count = wac.admissions.prediction$pred[1:prediction.length],
-                                                     lower = wac.admissions.forecast$lower[1:prediction.length],
-                                                     upper = wac.admissions.forecast$upper[1:prediction.length]),
+                                                     weekly.count = wac.admissions.prediction$pred[1:prediction.length]),
                                           Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                           Year.of.Admission = as.character(Year.of.Admission))
 # Elderly Care
@@ -614,9 +608,7 @@ autoplot(elderly.admissions.forecast) # to see confidence interval on prediction
 elderly.admissions.prediction <- predict(elderly.admissions.model, n.ahead = prediction.length)
 elderly.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
                                                 Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
-                                                weekly.count = elderly.admissions.prediction$pred[1:prediction.length],
-                                                lower = elderly.admissions.forecast$lower[1:prediction.length],
-                                                upper = elderly.admissions.forecast$upper[1:prediction.length]),
+                                                weekly.count = elderly.admissions.prediction$pred[1:prediction.length]),
                                      Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                      Year.of.Admission = as.character(Year.of.Admission))
 # Unscheduled Care
@@ -631,9 +623,7 @@ autoplot(unsched.admissions.forecast) # to see confidence interval on prediction
 unsched.admissions.prediction <- predict(unsched.admissions.model, n.ahead = prediction.length)
 unsched.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
                                                     Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
-                                                    weekly.count = unsched.admissions.prediction$pred[1:prediction.length],
-                                                    lower = unsched.admissions.forecast$lower[1:prediction.length],
-                                                    upper = unsched.admissions.forecast$upper[1:prediction.length]),
+                                                    weekly.count = unsched.admissions.prediction$pred[1:prediction.length]),
                                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                          Year.of.Admission = as.character(Year.of.Admission))
 # Palliative Care
@@ -648,8 +638,33 @@ autoplot(palliat.admissions.forecast) # to see confidence interval on prediction
 palliat.admissions.prediction <- predict(palliat.admissions.model, n.ahead = prediction.length)
 palliat.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
                                                     Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
-                                                    weekly.count = palliat.admissions.prediction$pred[1:prediction.length],
-                                                    lower = palliat.admissions.forecast$lower[1:prediction.length],
-                                                    upper = palliat.admissions.forecast$upper[1:prediction.length]),
+                                                    weekly.count = palliat.admissions.prediction$pred[1:prediction.length]),
                                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
                                          Year.of.Admission = as.character(Year.of.Admission))
+
+# Adjust to total prediction values
+all.admissions.per.resource <- rename(total.admissions, all.admissions = weekly.count) %>%
+                               full_join(rename(medical.admissions.predictions, medical = weekly.count),
+                                         by=c("Year.of.Admission", "Week.of.Admission")) %>%
+                               full_join(rename(surgical.admissions.predictions, surgical = weekly.count),
+                                         by=c("Year.of.Admission", "Week.of.Admission")) %>%
+                               full_join(rename(wac.admissions.predictions, women_and_child = weekly.count),
+                                         by=c("Year.of.Admission", "Week.of.Admission")) %>%
+                               full_join(rename(elderly.admissions.predictions, elderly_care = weekly.count),
+                                         by=c("Year.of.Admission", "Week.of.Admission")) %>%
+                               full_join(rename(unsched.admissions.predictions, unscheduled_care = weekly.count),
+                                         by=c("Year.of.Admission", "Week.of.Admission")) %>%
+                               full_join(rename(palliat.admissions.predictions, palliative_care = weekly.count),
+                                         by=c("Year.of.Admission", "Week.of.Admission")) %>%
+                               mutate(total.resources = medical + surgical + women_and_child + elderly_care +
+                                                        unscheduled_care + palliative_care) %>%
+                               mutate(adjust.factor = all.admissions / total.resources) %>%
+                               mutate(medical.adjusted = medical * adjust.factor) %>%
+                               mutate(surgical.adjusted = surgical * adjust.factor) %>%
+                               mutate(women_and_child.adjusted = women_and_child * adjust.factor) %>%
+                               mutate(elderly_care.adjusted = elderly_care * adjust.factor) %>%
+                               mutate(unscheduled_care.adjusted = unscheduled_care * adjust.factor) %>%
+                               mutate(palliative_care.adjusted = palliative_care * adjust.factor) %>%
+                               mutate(check.adjust = all.admissions - (medical.adjusted + surgical.adjusted +
+                                                                       women_and_child.adjusted + elderly_care.adjusted +
+                                                                       unscheduled_care.adjusted + palliative_care.adjusted))
