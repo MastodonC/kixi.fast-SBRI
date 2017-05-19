@@ -22,9 +22,9 @@ calculate.resource_pool.count.from.proportions <- function(daily.data, proportio
             mutate(daily.data, Resource.Pool.name = "Surgical"),
             mutate(daily.data, Resource.Pool.name = "Unscheduled Care"),
             mutate(daily.data, Resource.Pool.name = "Women and Child")) %>%
-    inner_join(proportions.data) %>%
+    inner_join(proportions.data, by = c("Resource.Pool.name")) %>%
     mutate(count = daily.count * proportion) %>%
-    select(date,count,Resource.Pool.name)
+    select(date,Ward.Name,Resource.Pool.name, count)
 }
 
 calculate.daily.counts.from.proportions <- function(weekly.data, proportions.data) {
@@ -40,7 +40,7 @@ calculate.daily.counts.from.proportions <- function(weekly.data, proportions.dat
     mutate(date = if_else(is.na(date),
                           as.Date(paste((as.integer(Year)+1), 0, (day-1), sep="-"), format="%Y-%U-%w"),
                           date))  %>% # remove the last days of the last week
-    mutate(Admission.Weekday = weekdays(date, abbreviate = FALSE))  %>%
+    mutate(weekday = weekdays(date, abbreviate = FALSE))  %>%
     inner_join(proportions.data) %>%
     mutate(daily.count = weekly.count * proportion)
 }
@@ -54,7 +54,11 @@ weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
     Date.of.Admission = as.Date(Date.of.Admission.With.Time,format="%d-%b-%Y %H:%M"),
+    Week.of.Admission = format(Date.of.Admission, "%U"),
+    Year.of.Admission = format(Date.of.Admission, "%Y"),
     Date.of.Discharge = as.Date(Date.of.Discharge.with.Time,format="%d-%b-%Y %H:%M"),
+    Week.of.Discharge = format(Date.of.Discharge, "%U"),
+    Year.of.Discharge = format(Date.of.Discharge, "%Y"),
     Date.of.Ward.Entry = as.Date(Date.of.Ward.Entry.with.Time,format="%d-%b-%Y %H:%M"),
     Date.of.Ward.Exit = as.Date(Date.of.Ward.Exit.with.Time,format="%d-%b-%Y %H:%M"),
     Week.of.Ward.Entry = format(Date.of.Ward.Entry, "%U"),
@@ -70,10 +74,10 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
 ##! Assumption: that we can use specialty on entry to determine resource pool (and not specialty on exit)
 resource_pool.specialties <- read.csv(resource_pool.specialties.path, stringsAsFactors = F,na.strings=c("","NA"))
 patient.data.with.resource_pool <- left_join(patient.data, resource_pool.specialties, by=c("Specialty.Description.on.Ward.Entry" = "PAS.name"))
-patient.data.with.exit.resource_pool <- left_join(patient.data, resource_pool.specialties, by=c("Specialty.on.Exit.of.Ward" = "PAS.name"))
-check.change.of.resource_pool <- full_join(patient.data.with.exit.resource_pool, patient.data.with.resource_pool, by=c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit","Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay")) %>%
-  filter(Resource.Pool.name.x != Resource.Pool.name.y) %>%
-  select(Resource.Pool.name.x, Resource.Pool.name.y)
+#patient.data.with.exit.resource_pool <- left_join(patient.data, resource_pool.specialties, by=c("Specialty.on.Exit.of.Ward" = "PAS.name"))
+#check.change.of.resource_pool <- full_join(patient.data.with.exit.resource_pool, patient.data.with.resource_pool, by=c("H.C.Encrypted", "Age", "Sex", "Date.of.Admission.With.Time", "Source.of.Admission", "Method.of.Admission", "Transferred.From", "Method.of.Admission.Category", "Date.Time.Medically.Assessed.Ready", "Reason.for.Discharge.Delay", "Date.of.Discharge.with.Time", "Method.of.Discharge", "Destination.Discharge.Description", "Transferred.To", "Ward.Name", "Date.of.Ward.Entry.with.Time", "Mode.of.Entry.to.Ward", "Specialty.Description.on.Ward.Entry", "Date.of.Ward.Exit.with.Time", "Mode.of.Exit.from.Ward", "Specialty.on.Exit.of.Ward", "Ward.Episode.Number", "Date.of.Admission", "Date.of.Discharge", "Date.of.Ward.Entry", "Date.of.Ward.Exit","Week.of.Ward.Entry", "Year.of.Ward.Entry", "Week.of.Ward.Exit", "Year.of.Ward.Exit", "length.of.stay")) %>%
+#  filter(Resource.Pool.name.x != Resource.Pool.name.y) %>%
+#  select(Resource.Pool.name.x, Resource.Pool.name.y)
 
 
 ## 1. Research to figure out methodology
@@ -120,23 +124,23 @@ check.change.of.resource_pool <- full_join(patient.data.with.exit.resource_pool,
 # elderly.care.counts.prediction.model <- arima(elderly.care.counts$count, order = c(1,1,1))
 
 # ward counts
-# patient.entry.per.ward <- group_by(patient.data, Date.of.Ward.Entry, Ward.Name) %>%
-#   summarize(entry.count = n()) %>%
-#   rename(Date = Date.of.Ward.Entry)
-# patient.exit.per.ward <- filter(patient.data, is.na(Date.of.Ward.Exit) == 0) %>% # remove all records with no date of exit for this, assume they haven't left
-#   group_by(Date.of.Ward.Exit, Ward.Name) %>%
-#   summarize(exit.count = n()) %>%
-#   rename(Date = Date.of.Ward.Exit)
-# patients.entry.exit.per.ward <- left_join(patient.entry.per.ward, patient.exit.per.ward) %>%
-#   all_na_to_0
-# 
-# ward.counts <-  ungroup(patients.entry.exit.per.ward) %>%
-#   group_by(Ward.Name) %>%
-#   arrange(Ward.Name,Date) %>%
-#   mutate(cumulative.entries = cumsum(entry.count),
-#          cumulative.exits = cumsum(exit.count),
-#          ward.count = cumulative.entries - cumulative.exits) # %>%
-#   #select(Ward.Name, Date, count)
+patient.entry.per.ward <- group_by(patient.data, Date.of.Ward.Entry, Ward.Name) %>%
+  summarize(entry.count = n()) %>%
+  rename(Date = Date.of.Ward.Entry)
+patient.exit.per.ward <- filter(patient.data, is.na(Date.of.Ward.Exit) == 0) %>% # remove all records with no date of exit for this, assume they haven't left
+  group_by(Date.of.Ward.Exit, Ward.Name) %>%
+  summarize(exit.count = n()) %>%
+  rename(Date = Date.of.Ward.Exit)
+patients.entry.exit.per.ward <- left_join(patient.entry.per.ward, patient.exit.per.ward) %>%
+  all_na_to_0
+
+ward.counts <-  ungroup(patients.entry.exit.per.ward) %>%
+  group_by(Ward.Name) %>%
+  arrange(Ward.Name,Date) %>%
+  mutate(cumulative.entries = cumsum(entry.count),
+         cumulative.exits = cumsum(exit.count),
+         ward.count = cumulative.entries - cumulative.exits) # %>%
+  # select(Ward.Name, Date, count)
 # 
 # ward.counts.horizontal <- dcast(ward.counts, Date ~ Ward.Name) %>%
 #                           all_na_to_0()
@@ -160,8 +164,6 @@ patient.counts <- mutate(patient.admissions.and.discharges,
                          count = cumulative.arrivals - cumulative.departures) %>%
                   select(Date, count)
 plot.ts(patient.counts$count)
-ward.patient.count.check <- full_join(patient.counts, ward.counts.horizontal)
-
 
 # check daily proportions on wards
 # "ignore" list:
@@ -249,7 +251,7 @@ ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (
 #                         group_by(Date.of.Ward.Exit) %>%
 #                         summarize(avg.length.of.stay = mean(length.of.stay))
 # plot.ts(stroke.ward.lengths$avg.length.of.stay)
-# ggplot(data = stroke.ward.patients, aes(x = Date.of.Ward.Exit, y = avg.length.of.stay)) + geom_point() + geom_smooth()
+# ggplot(data = stroke.ward.patients, aes(x http://bathfestivals.org.uk/the-bath-festival/event/free-family-festival-events-21-may/= Date.of.Ward.Exit, y = avg.length.of.stay)) + geom_point() + geom_smooth()
 # stroke.ward.exceeding <- filter(stroke.ward.patients, Date.of.Ward.Exit > Date.of.Discharge) # none
 
 # NOTE: if we decide to go with proportions, normalizing things so we have proportions that add up to one
@@ -408,13 +410,13 @@ last.year <- max(patient.per.ward.count.horizontal$Year)
 last.week <- as.integer(last(patient.per.ward.count.horizontal$Week))
 
 
-calculate_weekly_ward_prediction <- function(ward.column, ward.name, arima.order, prediction.length) {
+calculate_weekly_ward_prediction <- function(ward.column, ward.name, arima.order, prediction.length, year, week) {
   ward.model <- arima(ward.column, order = arima.order)
   print(ward.model)
   ward.forecast <- forecast(ward.model, level = c(95), h = prediction.length)
   ward.prediction <- predict(ward.model, n.ahead = prediction.length)
-  ward.pred.data <- data.frame(Year = rep(last.year,prediction.length),
-                               Week = (last.week+1):(last.week+prediction.length))
+  ward.pred.data <- data.frame(Year = rep(year,prediction.length),
+                               Week = (week+1):(week+prediction.length))
   ward.pred.data[,ward.name] <- ward.prediction$pred[1:prediction.length]
   ward.pred.data <- mutate(ward.pred.data,
                            Week = sprintf("%02d", Week),
@@ -433,22 +435,98 @@ for (ward in c("a1.medical","a2.paediatric","a3.medical","a4.medical","ae.dept",
                "intensive.care","b.cardiac","assessment.1","b4.general","c2.cotted","c3.gastro", "b5b.eau",
                "c4.elective","c5.surgery","c6.gen","c7","b2","macmillan","obs", "discharge.lounge")) {
   print(ward)
-  pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c(ward)], ward, c(1,0,0), prediction.length))
+  pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c(ward)], ward, c(1,0,0), prediction.length, last.year, last.week))
 }
-# special treatment for elderly acute because freak point at end
-pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[-c(nrow(patient.per.ward.count.horizontal)),c("elderly.acute")], "elderly.acute", c(1,0,0), prediction.length + 1))
+# special treatment for elderly acute because freak point at end: remove point, do prediction, drop result for first point to include real data
+t <- patient.per.ward.count.horizontal[-c(nrow(patient.per.ward.count.horizontal)),c("elderly.acute")]
+elderly.acute <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[-c(nrow(patient.per.ward.count.horizontal)),c("elderly.acute")], "elderly.acute", c(1,0,0), prediction.length + 1, last.year, last.week - 1)[-c(1),]
+pred.data <- full_join(pred.data, elderly.acute, by = c("Year", "Week"))
 # a1.medical, a2.paediatric, a3.medical, a4.medical, ae.dept, b3.ward, c1.gynae, c2.maternity, 
 # intensive.care, b.cardiac, assessment.1, b4.general, b5b.eau, c2.cotted, c3.gastro, 
 # c4.elective, c5.surgery, c6.gen, c7, discharge.lounge, elderly.acute, b2, macmillan, obs
 
 # 2.2. scale predictions so they sum to total prediction
 
+# total counts per week
+patient.visits <- filter(patient.data, Mode.of.Entry.to.Ward == "ADM")
+patient.admissions.per.week <- patient.visits %>%
+  group_by(Year.of.Admission, Week.of.Admission) %>%
+  arrange(Year.of.Admission, Week.of.Admission) %>%
+  summarize(arrival.count = n()) %>%
+  mutate(Year = Year.of.Admission, Week = Week.of.Admission)
+patient.discharges.per.week <- filter(patient.visits, is.na(Date.of.Discharge) == 0) %>%
+  group_by(Year.of.Discharge, Week.of.Discharge) %>%
+  arrange(Year.of.Discharge, Week.of.Discharge) %>%
+  summarize(departure.count = n()) %>%
+  mutate(Year = Year.of.Discharge, Week = Week.of.Discharge)
+patient.admissions.and.discharges <- full_join(patient.admissions.per.week, patient.discharges.per.week)
+patient.counts <- ungroup(patient.admissions.and.discharges) %>%
+  arrange(Year, Week) %>%
+  mutate(cumulative.arrivals = cumsum(arrival.count),
+         cumulative.departures = cumsum(departure.count),
+         count = cumulative.arrivals - cumulative.departures) %>%
+  select(Year, Week, count) %>%
+  filter(is.na(count) == 0)
+plot.ts(patient.counts$count)
+total.model <- arima(x = patient.counts$count, order = c(1, 1, 1))
+total.forecast <- forecast(total.model, level = c(95), h = prediction.length)
+autoplot(total.forecast)
+total.prediction <- predict(total.model, n.ahead = prediction.length)
+total.pred.data <- mutate(data.frame(Year = rep(last.year,prediction.length),
+                                     Week = (last.week+1):(last.week+prediction.length),
+                                     total = total.prediction$pred[1:prediction.length]),
+                          Week = sprintf("%02d", Week),
+                          Year = as.character(Year))                          
+
+# sum all the wards
+pred.data$ward.sum <- pred.data$a1.medical +
+  pred.data$a2.paediatric + pred.data$a3.medical + pred.data$a4.medical + pred.data$ae.dept +
+  pred.data$b3.ward + pred.data$c1.gynae + pred.data$c2.maternity + 
+  pred.data$intensive.care + pred.data$b.cardiac + pred.data$assessment.1 + 
+  pred.data$b4.general + pred.data$b5b.eau + pred.data$c2.cotted + pred.data$c3.gastro + 
+  pred.data$c4.elective + pred.data$c5.surgery + pred.data$c6.gen + pred.data$c7 + pred.data$discharge.lounge + 
+  pred.data$elderly.acute + pred.data$b2 + pred.data$macmillan + pred.data$obs
+
+pred.data <- full_join(pred.data, total.pred.data) %>%
+             mutate(scale = total/ward.sum)
+
+scale_weekly_ward_prediction <- function(data, ward.name, scale.column) {
+  data[,c(ward.name)]*scale.column
+}
+for (ward in c("a1.medical","a2.paediatric","a3.medical","a4.medical","ae.dept","b3.ward","c1.gynae","c2.maternity", 
+               "intensive.care","b.cardiac","assessment.1","b4.general","c2.cotted","c3.gastro", "b5b.eau",
+               "c4.elective","c5.surgery","c6.gen","c7","b2","macmillan","obs", "discharge.lounge", "elderly.acute")) {
+  pred.data[,c(ward)] <- scale_weekly_ward_prediction(pred.data, ward, pred.data$scale)  
+}
+# let's double check
+pred.data$check.ward.sum <- pred.data$a1.medical +
+  pred.data$a2.paediatric + pred.data$a3.medical + pred.data$a4.medical + pred.data$ae.dept +
+  pred.data$b3.ward + pred.data$c1.gynae + pred.data$c2.maternity + 
+  pred.data$intensive.care + pred.data$b.cardiac + pred.data$assessment.1 + 
+  pred.data$b4.general + pred.data$b5b.eau + pred.data$c2.cotted + pred.data$c3.gastro + 
+  pred.data$c4.elective + pred.data$c5.surgery + pred.data$c6.gen + pred.data$c7 + pred.data$discharge.lounge + 
+  pred.data$elderly.acute + pred.data$b2 + pred.data$macmillan + pred.data$obs
+
 # 2.3. split up in weekdays and resource pools
 
+# re-melt the ward weekly counts to vertical format
+ward.prediction.data <- melt(pred.data, id = c("Year", "Week"), variable.name = "Ward.Name", value.name = c("weekly.count"))
+a1.medical.prediction.data <- filter(ward.prediction.data, Ward.Name == "a1.medical")
+# use daily ward counts to get weekly proportions
+ward.counts <- mutate(ward.counts, weekday = weekdays(Date, abbreviate = FALSE))
+a1.medical.total.count <- sum(filter(ward.counts, Ward.Name == "A1 Stroke/Medical Ward")$ward.count)
+a1.medical.weekday.proportions <- filter(ward.counts, Ward.Name == "A1 Stroke/Medical Ward") %>%
+  group_by(weekday) %>%
+  summarize(proportion = sum(ward.count)/a1.medical.total.count)
+
+# resource pool proportions
 a1.medical.number <- nrow(filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward"))
 a1.medical.resource_pool.proportions <- filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward") %>%
                                         group_by(Resource.Pool.name) %>%
                                         summarize(proportion = n()/a1.medical.number)
-a1.medical.pred.data.with.resource_pools <- calculate.resource_pool.count.from.proportions(a1.medical.pred.data, a1.medical.resource_pool.proportions)
+
+a1.medical.pred.data.with.weekdays <- calculate.daily.counts.from.proportions(a1.medical.prediction.data, a1.medical.weekday.proportions) %>%
+  select(Ward.Name, date, daily.count)
+a1.medical.pred.data.with.resource_pools <- calculate.resource_pool.count.from.proportions(a1.medical.pred.data.with.weekdays, a1.medical.resource_pool.proportions)
 
 
