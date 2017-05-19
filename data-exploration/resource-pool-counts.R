@@ -263,6 +263,12 @@ closed.or.not <- filter(patient.data, Ward.Name == "B5 Closed From 03/10/16") %>
 
 ## 2. Actual results
 ######################
+# steps:
+# 1. predictions on a weekly level
+# 2. scale predictions so they sum to total prediction (TODO)
+# 3. split up in weekdays and resource pools (TODO)
+
+#### 2.1 predictions on a weekly level
 
 relevant.patient.data <- filter(patient.data.with.resource_pool, !(Ward.Name %in% ward.ignore))
 patient.entry.ward <- group_by(relevant.patient.data, Ward.Name, Year.of.Ward.Entry, Week.of.Ward.Entry) %>%
@@ -402,7 +408,7 @@ last.year <- max(patient.per.ward.count.horizontal$Year)
 last.week <- as.integer(last(patient.per.ward.count.horizontal$Week))
 
 
-calculate_weekly_ward_prediction <- function(ward.column, ward.name, arima.order) {
+calculate_weekly_ward_prediction <- function(ward.column, ward.name, arima.order, prediction.length) {
   ward.model <- arima(ward.column, order = arima.order)
   print(ward.model)
   ward.forecast <- forecast(ward.model, level = c(95), h = prediction.length)
@@ -422,21 +428,22 @@ pred.data <- mutate(data.frame(Year = rep(last.year,prediction.length),
                                Week = (last.week+1):(last.week+prediction.length)),
                     Week = sprintf("%02d", Week),
                     Year = as.character(Year))  
+# could be difficult to b5b.eau, elderly.acute: separate treatment?
 for (ward in c("a1.medical","a2.paediatric","a3.medical","a4.medical","ae.dept","b3.ward","c1.gynae","c2.maternity", 
-               "intensive.care","b.cardiac","assessment.1","b4.general","b5b.eau","c2.cotted","c3.gastro",
-               "c4.elective","c5.surgery","c6.gen","c7","discharge.lounge","elderly.acute","b2","macmillan","obs")) {
+               "intensive.care","b.cardiac","assessment.1","b4.general","c2.cotted","c3.gastro", "b5b.eau",
+               "c4.elective","c5.surgery","c6.gen","c7","b2","macmillan","obs", "discharge.lounge")) {
   print(ward)
-  pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c(ward)], ward, c(1,0,0)))
+  pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c(ward)], ward, c(1,0,0), prediction.length))
 }
+# special treatment for elderly acute because freak point at end
+pred.data <- full_join(pred.data, calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[-c(nrow(patient.per.ward.count.horizontal)),c("elderly.acute")], "elderly.acute", c(1,0,0), prediction.length + 1))
 # a1.medical, a2.paediatric, a3.medical, a4.medical, ae.dept, b3.ward, c1.gynae, c2.maternity, 
 # intensive.care, b.cardiac, assessment.1, b4.general, b5b.eau, c2.cotted, c3.gastro, 
 # c4.elective, c5.surgery, c6.gen, c7, discharge.lounge, elderly.acute, b2, macmillan, obs
-a1.medical.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a1.medical, c(1,0,0))
-a2.paediatric.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a2.paediatric, c(1,0,1))
-a3.medical.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a3.medical, c(1,0,0))
-a4.medical.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$a4.medical, c(1,0,0))
-ae.dept.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal$ae.dept, c(1,0,0))
-b3.ward.prediction.data <- calculate_weekly_ward_prediction(patient.per.ward.count.horizontal[,c("b3.ward")], c(1,0,0))
+
+# 2.2. scale predictions so they sum to total prediction
+
+# 2.3. split up in weekdays and resource pools
 
 a1.medical.number <- nrow(filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward"))
 a1.medical.resource_pool.proportions <- filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward") %>%
