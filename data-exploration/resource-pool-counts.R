@@ -533,25 +533,29 @@ calculate_breakdown_per_day_and_resource_pool <- function(ward.column, ward.name
   calculate.daily.counts.from.proportions(prediction.data, weekday.proportions) %>%
     select(Ward.Name, date, daily.count) %>%
     calculate.resource_pool.count.from.proportions(resource_pool.proportions) %>%
-    mutate(Ward.Name = ward.name) %>%
+    mutate(Ward.Name.added = ward.name) %>%
     arrange(date)
 }
 
-a1.medical.prediction.data <- filter(ward.prediction.data, Ward.Name == "a1.medical")
+calculate_breakdown_per_day_and_resource_pool("a1.medical", "A1 Stroke/Medical Ward", ward.counts, patient.data.with.resource_pool)
 
-a1.medical.total.count <- sum(filter(ward.counts, Ward.Name == "A1 Stroke/Medical Ward")$ward.count)
-a1.medical.weekday.proportions <- filter(ward.counts, Ward.Name == "A1 Stroke/Medical Ward") %>%
-  group_by(weekday) %>%
-  summarize(proportion = sum(ward.count)/a1.medical.total.count)
-
-# resource pool proportions
-a1.medical.number <- nrow(filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward"))
-a1.medical.resource_pool.proportions <- filter(patient.data.with.resource_pool, Ward.Name == "A1 Stroke/Medical Ward") %>%
-                                        group_by(Resource.Pool.name) %>%
-                                        summarize(proportion = n()/a1.medical.number)
-
-a1.medical.pred.data.with.weekdays <- calculate.daily.counts.from.proportions(a1.medical.prediction.data, a1.medical.weekday.proportions) %>%
-  select(Ward.Name, date, daily.count)
-a1.medical.pred.data.with.resource_pools <- calculate.resource_pool.count.from.proportions(a1.medical.pred.data.with.weekdays, a1.medical.resource_pool.proportions)
-
-
+mapped.results <- mapply(calculate_breakdown_per_day_and_resource_pool, 
+                         MoreArgs=list(ward.counts, patient.data.with.resource_pool), SIMPLIFY=FALSE,
+                         c("a1.medical","a2.paediatric","a3.medical","a4.medical","ae.dept","b3.ward","c1.gynae","c2.maternity", 
+                           "intensive.care","b.cardiac","assessment.1","b4.general","b5b.eau","c2.cotted","c3.gastro", 
+                           "c4.elective","c5.surgery","c6.gen","c7","discharge.lounge","elderly.acute","elderly.acute","macmillan","obs"),
+                         c("A1 Stroke/Medical Ward", "A2 Paediatric Ward", "A3 Medical Ward", "Antrim A4 Medical", 
+                           "Antrim A&E Dept.", "Antrim B3 Ward", "Antrim C1 Gynae", "Antrim C2 Maternity Unit", 
+                           "Antrim (C)Intensive Care", "Antrim Level B Cardiac Unit", "Assessment Medical Unit 1", 
+                           "B4 - General Medicine", "B5b -Use Ward Code Eau For B5b", "C2 Cotted Ward", 
+                           "C3 Gastro & General Medicine", "C4 Elective Unit", "C5 Gen Surgery", "C6 Gen Surgery", "C7",
+                           "Discharge Lounge Antrim", "Eldery Acute Unit", "Genm/Endo/Diab - B2", "Macmillan Unit At Antrim", "Observation Unit - Antrim"))
+# initialize empty data frame
+final.data <- df <- data.frame(date=as.Date(character()),
+                               Ward.Name=character(), 
+                               Resource.Pool.name=character(), 
+                               count=integer(),
+                               stringsAsFactors=FALSE) 
+for (i in 1:24) {
+  final.data <- bind_rows(final.data, mapped.results[i])
+}
