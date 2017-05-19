@@ -665,6 +665,91 @@ all.admissions.per.resource <- rename(total.admissions, all.admissions = weekly.
                                mutate(elderly_care.adjusted = elderly_care * adjust.factor) %>%
                                mutate(unscheduled_care.adjusted = unscheduled_care * adjust.factor) %>%
                                mutate(palliative_care.adjusted = palliative_care * adjust.factor) %>%
+                               # Check it all adds up
                                mutate(check.adjust = all.admissions - (medical.adjusted + surgical.adjusted +
                                                                        women_and_child.adjusted + elderly_care.adjusted +
-                                                                       unscheduled_care.adjusted + palliative_care.adjusted))
+                                                                       unscheduled_care.adjusted + palliative_care.adjusted)) %>%
+                               # Keep necessary columns
+                               select(Year.of.Admission, Week.of.Admission, medical.adjusted, surgical.adjusted,
+                                      women_and_child.adjusted, elderly_care.adjusted, unscheduled_care.adjusted,
+                                      palliative_care.adjusted)
+
+
+#write.csv(all.admissions.per.resource, file = "test-pred-resources-add-up.csv", row.names = F)
+
+# Daily propertions per resource pool
+medical.admissions <- filter(patient.admissions, Resource.Pool.name == "Medical")
+medical.admissions.per.weekday <- group_by(medical.admissions, Admission.Weekday) %>%
+                                  tally() %>%
+                                  mutate(total = nrow(medical.admissions)) %>%
+                                  mutate(proportion = n/total) %>%
+                                  select(Admission.Weekday, proportion)
+surgical.admissions <- filter(patient.admissions, Resource.Pool.name == "Surgical")
+surgical.admissions.per.weekday <- group_by(surgical.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(surgical.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+wac.admissions <- filter(patient.admissions, Resource.Pool.name == "Women and Child")
+wac.admissions.per.weekday <- group_by(wac.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(wac.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+elderly.admissions <- filter(patient.admissions, Resource.Pool.name == "Elderly Care")
+elderly.admissions.per.weekday <- group_by(elderly.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(elderly.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+unsched.admissions <- filter(patient.admissions, Resource.Pool.name == "Unscheduled Care")
+unsched.admissions.per.weekday <- group_by(unsched.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(unsched.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+palliat.admissions <- filter(patient.admissions, Resource.Pool.name == "Palliative Care")
+palliat.admissions.per.weekday <- group_by(palliat.admissions, Admission.Weekday) %>%
+  tally() %>%
+  mutate(total = nrow(palliat.admissions)) %>%
+  mutate(proportion = n/total) %>%
+  select(Admission.Weekday, proportion)
+
+# Break down into daily predictions
+# Medical
+medical.admissions.day <- all.admissions.per.resource %>%
+                          select(Year.of.Admission, Week.of.Admission, medical.adjusted) %>%
+                          rename(weekly.count = medical.adjusted) %>%
+                          calculate.daily.counts.from.proportions(medical.admissions.per.weekday) %>%
+                          select(Year.of.Admission, Week.of.Admission, date, daily.count)
+# Surgical
+surgical.admissions.day <- all.admissions.per.resource %>%
+                           select(Year.of.Admission, Week.of.Admission, surgical.adjusted) %>%
+                           rename(weekly.count = surgical.adjusted) %>%
+                           calculate.daily.counts.from.proportions(surgical.admissions.per.weekday) %>%
+                           select(Year.of.Admission, Week.of.Admission, date, daily.count)
+# Women and Child
+wac.admissions.day <- all.admissions.per.resource %>%
+                      select(Year.of.Admission, Week.of.Admission, women_and_child.adjusted) %>%
+                      rename(weekly.count = women_and_child.adjusted) %>%
+                      calculate.daily.counts.from.proportions(wac.admissions.per.weekday) %>%
+                      select(Year.of.Admission, Week.of.Admission, date, daily.count)
+# Elderly Care
+elderly.admissions.day <- all.admissions.per.resource %>%
+                          select(Year.of.Admission, Week.of.Admission, elderly_care.adjusted) %>%
+                          rename(weekly.count = elderly_care.adjusted) %>%
+                          calculate.daily.counts.from.proportions(elderly.admissions.per.weekday) %>%
+                          select(Year.of.Admission, Week.of.Admission, date, daily.count)
+# Unscheduled Care
+unsched.admissions.day <- all.admissions.per.resource %>%
+                          select(Year.of.Admission, Week.of.Admission, unscheduled_care.adjusted) %>%
+                          rename(weekly.count = unscheduled_care.adjusted) %>%
+                          calculate.daily.counts.from.proportions(unsched.admissions.per.weekday) %>%
+                          select(Year.of.Admission, Week.of.Admission, date, daily.count)
+# Palliative Care
+palliat.admissions.day <- all.admissions.per.resource %>%
+                          select(Year.of.Admission, Week.of.Admission, palliative_care.adjusted) %>%
+                          rename(weekly.count = palliative_care.adjusted) %>%
+                          calculate.daily.counts.from.proportions(palliat.admissions.per.weekday) %>%
+                          select(Year.of.Admission, Week.of.Admission, date, daily.count)
+
