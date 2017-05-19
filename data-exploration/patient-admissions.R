@@ -176,6 +176,7 @@ total.prediction.data <- mutate(data.frame(Year.of.Admission = rep(last.year,pre
                          Year.of.Admission = as.character(Year.of.Admission))
 total.admissions <- total.prediction.data
 
+## Predictions per admission method
 # emergency admissions
 emergency.admissions.wk <- filter(patient.admissions, Method.of.Admission.Category == "Emergency Admission") %>%
   group_by(Year.of.Admission, Week.of.Admission) %>%
@@ -547,3 +548,108 @@ all.admissions.data.pred.ward <- bind_rows(all.admissions.data.ward, all.admissi
 
 # Save to CSV
 write.csv(all.admissions.data.pred.ward, file="admission-historic-and-predictions-per-method-resource-ward.csv", row.names = F)
+
+
+## Predictions per resource pool
+# Medical
+medical.admissions.wk <- filter(patient.admissions, Resource.Pool.name == "Medical") %>%
+                         group_by(Year.of.Admission, Week.of.Admission) %>%
+                         arrange(Year.of.Admission, Week.of.Admission) %>%
+                         summarise(weekly.count=n()) %>%
+                         remove_first_and_last_n(1)
+medical.admissions.model <- arima(medical.admissions.wk$weekly.count, order = c(1,1,1))
+medical.admissions.forecast <- forecast(medical.admissions.model, level = c(95), h = prediction.length)
+autoplot(medical.admissions.forecast) # to see confidence interval on prediction
+medical.admissions.prediction <- predict(medical.admissions.model, n.ahead = prediction.length)
+medical.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                          Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                          weekly.count = medical.admissions.prediction$pred[1:prediction.length],
+                                                          lower = medical.admissions.forecast$lower[1:prediction.length],
+                                                          upper = medical.admissions.forecast$upper[1:prediction.length]),
+                                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                          Year.of.Admission = as.character(Year.of.Admission))
+# Surgical
+surgical.admissions.wk <- filter(patient.admissions, Resource.Pool.name == "Surgical") %>%
+                          group_by(Year.of.Admission, Week.of.Admission) %>%
+                          arrange(Year.of.Admission, Week.of.Admission) %>%
+                          summarise(weekly.count=n()) %>%
+                          remove_first_and_last_n(1)
+surgical.admissions.model <- arima(surgical.admissions.wk$weekly.count, order = c(1,1,1))
+surgical.admissions.forecast <- forecast(surgical.admissions.model, level = c(95), h = prediction.length)
+autoplot(surgical.admissions.forecast) # to see confidence interval on prediction
+surgical.admissions.prediction <- predict(surgical.admissions.model, n.ahead = prediction.length)
+surgical.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                    Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                    weekly.count = surgical.admissions.prediction$pred[1:prediction.length],
+                                                    lower = surgical.admissions.forecast$lower[1:prediction.length],
+                                                    upper = surgical.admissions.forecast$upper[1:prediction.length]),
+                                         Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                         Year.of.Admission = as.character(Year.of.Admission))
+# Women and Child
+wac.admissions.wk <- filter(patient.admissions, Resource.Pool.name == "Women and Child") %>%
+                     group_by(Year.of.Admission, Week.of.Admission) %>%
+                     arrange(Year.of.Admission, Week.of.Admission) %>%
+                     summarise(weekly.count=n()) %>%
+                     remove_first_and_last_n(1)
+wac.admissions.model <- arima(wac.admissions.wk$weekly.count, order = c(1,1,1))
+wac.admissions.forecast <- forecast(wac.admissions.model, level = c(95), h = prediction.length)
+autoplot(wac.admissions.forecast) # to see confidence interval on prediction
+wac.admissions.prediction <- predict(wac.admissions.model, n.ahead = prediction.length)
+wac.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                     Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                     weekly.count = wac.admissions.prediction$pred[1:prediction.length],
+                                                     lower = wac.admissions.forecast$lower[1:prediction.length],
+                                                     upper = wac.admissions.forecast$upper[1:prediction.length]),
+                                          Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                          Year.of.Admission = as.character(Year.of.Admission))
+# Elderly Care
+elderly.admissions.wk <- filter(patient.admissions, Resource.Pool.name == "Elderly Care") %>%
+                         group_by(Year.of.Admission, Week.of.Admission) %>%
+                         arrange(Year.of.Admission, Week.of.Admission) %>%
+                         summarise(weekly.count=n()) %>%
+                         remove_first_and_last_n(1)
+elderly.admissions.model <- arima(elderly.admissions.wk$weekly.count, order = c(1,1,1))
+elderly.admissions.forecast <- forecast(elderly.admissions.model, level = c(95), h = prediction.length)
+autoplot(elderly.admissions.forecast) # to see confidence interval on prediction
+elderly.admissions.prediction <- predict(elderly.admissions.model, n.ahead = prediction.length)
+elderly.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                weekly.count = elderly.admissions.prediction$pred[1:prediction.length],
+                                                lower = elderly.admissions.forecast$lower[1:prediction.length],
+                                                upper = elderly.admissions.forecast$upper[1:prediction.length]),
+                                     Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                     Year.of.Admission = as.character(Year.of.Admission))
+# Unscheduled Care
+unsched.admissions.wk <- filter(patient.admissions, Resource.Pool.name == "Unscheduled Care") %>%
+                         group_by(Year.of.Admission, Week.of.Admission) %>%
+                         arrange(Year.of.Admission, Week.of.Admission) %>%
+                         summarise(weekly.count=n()) %>%
+                         remove_first_and_last_n(1)
+unsched.admissions.model <- arima(unsched.admissions.wk$weekly.count, order = c(1,1,1))
+unsched.admissions.forecast <- forecast(unsched.admissions.model, level = c(95), h = prediction.length)
+autoplot(unsched.admissions.forecast) # to see confidence interval on prediction
+unsched.admissions.prediction <- predict(unsched.admissions.model, n.ahead = prediction.length)
+unsched.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                    Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                    weekly.count = unsched.admissions.prediction$pred[1:prediction.length],
+                                                    lower = unsched.admissions.forecast$lower[1:prediction.length],
+                                                    upper = unsched.admissions.forecast$upper[1:prediction.length]),
+                                         Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                         Year.of.Admission = as.character(Year.of.Admission))
+# Palliative Care
+palliat.admissions.wk <- filter(patient.admissions, Resource.Pool.name == "Palliative Care") %>%
+                         group_by(Year.of.Admission, Week.of.Admission) %>%
+                         arrange(Year.of.Admission, Week.of.Admission) %>%
+                         summarise(weekly.count=n()) %>%
+                         remove_first_and_last_n(1)
+palliat.admissions.model <- arima(palliat.admissions.wk$weekly.count, order = c(1,1,1))
+palliat.admissions.forecast <- forecast(palliat.admissions.model, level = c(95), h = prediction.length)
+autoplot(palliat.admissions.forecast) # to see confidence interval on prediction
+palliat.admissions.prediction <- predict(palliat.admissions.model, n.ahead = prediction.length)
+palliat.admissions.predictions <- mutate(data.frame(Year.of.Admission = rep(last.year, prediction.length),
+                                                    Week.of.Admission = ((last.week+1):(last.week+prediction.length)),
+                                                    weekly.count = palliat.admissions.prediction$pred[1:prediction.length],
+                                                    lower = palliat.admissions.forecast$lower[1:prediction.length],
+                                                    upper = palliat.admissions.forecast$upper[1:prediction.length]),
+                                         Week.of.Admission = sprintf("%02d", Week.of.Admission),
+                                         Year.of.Admission = as.character(Year.of.Admission))
