@@ -511,9 +511,34 @@ pred.data$check.ward.sum <- pred.data$a1.medical +
 
 # re-melt the ward weekly counts to vertical format
 ward.prediction.data <- melt(pred.data, id = c("Year", "Week"), variable.name = "Ward.Name", value.name = c("weekly.count"))
-a1.medical.prediction.data <- filter(ward.prediction.data, Ward.Name == "a1.medical")
+
 # use daily ward counts to get weekly proportions
 ward.counts <- mutate(ward.counts, weekday = weekdays(Date, abbreviate = FALSE))
+
+calculate_breakdown_per_day_and_resource_pool <- function(ward.column, ward.name, ward.counts, patient.data.with.resource_pool) {
+  prediction.data <- filter(ward.prediction.data, Ward.Name == ward.column)
+  
+  # weekday proportions
+  total.count <- sum(filter(ward.counts, Ward.Name == ward.name)$ward.count)
+  weekday.proportions <- filter(ward.counts, Ward.Name == ward.name) %>%
+    group_by(weekday) %>%
+    summarize(proportion = sum(ward.count)/a1.medical.total.count)
+
+  # resource pool proportions
+  total.number <- nrow(filter(patient.data.with.resource_pool, Ward.Name == ward.name))
+  resource_pool.proportions <- filter(patient.data.with.resource_pool, Ward.Name == ward.name) %>%
+    group_by(Resource.Pool.name) %>%
+    summarize(proportion = n()/total.number)
+
+  calculate.daily.counts.from.proportions(prediction.data, weekday.proportions) %>%
+    select(Ward.Name, date, daily.count) %>%
+    calculate.resource_pool.count.from.proportions(resource_pool.proportions) %>%
+    mutate(Ward.Name = ward.name) %>%
+    arrange(date)
+}
+
+a1.medical.prediction.data <- filter(ward.prediction.data, Ward.Name == "a1.medical")
+
 a1.medical.total.count <- sum(filter(ward.counts, Ward.Name == "A1 Stroke/Medical Ward")$ward.count)
 a1.medical.weekday.proportions <- filter(ward.counts, Ward.Name == "A1 Stroke/Medical Ward") %>%
   group_by(weekday) %>%
