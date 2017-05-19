@@ -816,3 +816,13 @@ errors_resource_ward <- filter(compare_resource_ward_counts,
 
 # Save to csv
 write.csv(all.admissions.per.resource.ward, file = "admission-predictions-per-resource-ward.csv", row.names = F)
+
+# Add historical data
+all.admissions.data.resource.ward <- group_by(patient.admissions, Date.of.Admission, Resource.Pool.name, Ward.Name) %>%
+                                     summarize(ward.count = n())
+
+all.admissions.data.pred.resource.ward <- bind_rows(all.admissions.data.resource.ward, 
+                                                    rename(all.admissions.per.resource.ward, Date.of.Admission = date))
+
+write.csv(all.admissions.data.pred.resource.ward, file = "admission-historic-and-predictions-per-resource-ward.csv",
+          row.names = F)
