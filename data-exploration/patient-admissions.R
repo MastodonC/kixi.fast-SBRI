@@ -796,7 +796,9 @@ all.admissions.per.resource.ward <- bind_rows(medical.admissions.per.ward, surgi
                                     bind_rows(wac.admissions.per.ward) %>%
                                     bind_rows(elderly.admissions.per.ward) %>%
                                     bind_rows(unsched.admissions.per.ward) %>%
-                                    bind_rows(palliat.admissions.per.ward)
+                                    bind_rows(palliat.admissions.per.ward) %>%
+                                    rename(Date.of.Admission = date) %>%
+                                    mutate(ward.count = format(ward.count, digits=3))
 
 # Check the ward results add up at resource pools level
 check_resource_ward_counts <- all.admissions.per.resource.ward %>%
@@ -820,9 +822,8 @@ write.csv(all.admissions.per.resource.ward, file = "admission-predictions-per-re
 # Add historical data
 all.admissions.data.resource.ward <- group_by(patient.admissions, Date.of.Admission, Resource.Pool.name, Ward.Name) %>%
                                      summarize(ward.count = n())
-
-all.admissions.data.pred.resource.ward <- bind_rows(all.admissions.data.resource.ward, 
-                                                    rename(all.admissions.per.resource.ward, Date.of.Admission = date))
+  
+all.admissions.data.pred.resource.ward <- bind_rows(all.admissions.data.resource.ward, all.admissions.per.resource.ward)
 
 write.csv(all.admissions.data.pred.resource.ward, file = "admission-historic-and-predictions-per-resource-ward.csv",
           row.names = F)
