@@ -930,7 +930,7 @@ palliat_daily <- weekly_disch_resource_pred %>%
                  calculate.weekly.disch.from.proportions(weekday_palliat_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
 
-## Test values add up [Unfinished]
+## Test values add up
 all_daily_resource_disch <- rename(medical_daily, medical = daily_count) %>%
   full_join(by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
   full_join(rename(surgical_daily, surgical = daily_count), 
@@ -942,15 +942,14 @@ all_daily_resource_disch <- rename(medical_daily, medical = daily_count) %>%
   full_join(rename(unsched_daily, unscheduled_care = daily_count), 
             by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
   full_join(rename(palliat_daily, palliative_care = daily_count), 
-            by=c("Year.of.Discharge", "Week.of.Discharge"))
+            by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  group_by(Year.of.Discharge, Week.of.Discharge) %>%
+  summarize(weekly_count_check=medical + surgical + women_and_child + elderly_care + unscheduled_care + palliative_care) %>%
+  full_join(weekly_disch_resource_pred, by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  mutate(sum_count_check= medical_adjusted + surgical_adjusted + women_and_child_adjusted + elderly_care_adjusted + 
+           unscheduled_care_adjusted + palliative_care_adjusted)
 
-weekly_disch_resource_pred$sum_resource <- all_daily_resource_disch$medical + 
-  all_daily_resource_disch$surgical + 
-  all_daily_resource_disch$women_and_child +
-  all_daily_resource_disch$elderly_care + 
-  all_daily_resource_disch$unscheduled_care + 
-  all_daily_resource_disch$palliative_care
-
+daily_check_errors <- filter(all_daily_resource_disch, weekly_count_check != sum_count_check)
 
 ## Break down daily resource predictions (NO discharge type) into RESOURCE POOLS PER WARD
 ward_resources <- exits_per_spe_for_ward %>%
