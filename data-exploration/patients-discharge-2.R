@@ -848,7 +848,7 @@ weekly_disch_resource_pred <- weekly_disch_resource_pred[,c("Year.of.Discharge",
                                                             "elderly_care_adjusted", "unscheduled_care_adjusted", 
                                                             "palliative_care_adjusted")]
 
-## Break down weekly resource pools predictions into DAILY PREDICTIONS PER RESOURCE POOL
+## Break down weekly resource pools predictions into DAILY PREDICTIONS
 # Medical
 med_wk_disch <-  patient.discharges %>%
   filter(Resource.Pool.name == "Medical") %>%
@@ -930,7 +930,27 @@ palliat_daily <- weekly_disch_resource_pred %>%
                  calculate.weekly.disch.from.proportions(weekday_palliat_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
 
-## ADD A TEST TO CHECK TOTALS [here]
+## Test values add up [Unfinished]
+all_daily_resource_disch <- rename(medical_daily, medical = daily_count) %>%
+  full_join(by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  full_join(rename(surgical_daily, surgical = daily_count), 
+            by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  full_join(rename(wac_daily, women_and_child = daily_count), 
+            by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  full_join(rename(elderly_daily, elderly_care = daily_count), 
+            by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  full_join(rename(unsched_daily, unscheduled_care = daily_count), 
+            by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
+  full_join(rename(palliat_daily, palliative_care = daily_count), 
+            by=c("Year.of.Discharge", "Week.of.Discharge"))
+
+weekly_disch_resource_pred$sum_resource <- all_daily_resource_disch$medical + 
+  all_daily_resource_disch$surgical + 
+  all_daily_resource_disch$women_and_child +
+  all_daily_resource_disch$elderly_care + 
+  all_daily_resource_disch$unscheduled_care + 
+  all_daily_resource_disch$palliative_care
+
 
 ## Break down daily resource predictions (NO discharge type) into RESOURCE POOLS PER WARD
 ward_resources <- exits_per_spe_for_ward %>%
