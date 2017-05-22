@@ -167,21 +167,21 @@ patient.discharges <- merge(patients_exit_hospital, specialities_match,
 
 ### Discharges per weekday
 ## Weekdays - Total discharges
-total_discharges <- nrow(patient.discharges)
-
-patient.discharges$Discharge.weekdays <- weekdays(patient.discharges$Date.of.Discharge, 
-                                                      abbreviate = FALSE)
-
-discharge_per_weekday <- patient.discharges %>%
-                         group_by(Discharge.weekdays) %>%
-                         summarize(weekday_count = n()) %>%
-                         mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
-                         arrange(weekday.ordered)
-
-ggplot(data=discharge_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
-
-weekday_discharge_proportions <- discharge_per_weekday %>%
-                                 mutate(proportions = weekday_count / total_discharges)
+# total_discharges <- nrow(patient.discharges)
+# 
+# patient.discharges$Discharge.weekdays <- weekdays(patient.discharges$Date.of.Discharge, 
+#                                                       abbreviate = FALSE)
+# 
+# discharge_per_weekday <- patient.discharges %>%
+#                          group_by(Discharge.weekdays) %>%
+#                          summarize(weekday_count = n()) %>%
+#                          mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+#                          arrange(weekday.ordered)
+# 
+# ggplot(data=discharge_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
+# 
+# weekday_discharge_proportions <- discharge_per_weekday %>%
+#                                  mutate(proportions = weekday_count / total_discharges)
 
 # All discharges per ward per weekday
 discharge_ward_wkday <- patient.discharges %>%
@@ -260,7 +260,7 @@ resource_discharge_proportions <- patient.discharges %>%
                                   summarize(resource_count = n()) %>%
                                   mutate(proportions = resource_count / nrow(patient.discharges))
 
-ggplot(data=resource_discharge_proportions, aes(x=Resource.Pool.name, y=resource_count)) + geom_col()
+# ggplot(data=resource_discharge_proportions, aes(x=Resource.Pool.name, y=resource_count)) + geom_col()
 
 ### Data Exploration + Arima Model
 
@@ -491,48 +491,66 @@ weekly_discharges_pred_with_ci <- hist_weekly_discharges %>%
 
 write.csv(weekly_discharges_pred_with_ci, file = "weekly_discharges_historic_and_predictions.csv", row.names = F)
 
-## Break down weekly predictions into DAILY PREDICTIONS PER DISCHARGE GROUP
-norm_disch <- filter(patient.discharges, discharge_group == "Normal Discharge")
-ext_disch <- filter(patient.discharges, discharge_group == "External Transfer")
-pall_disch <- filter(patient.discharges, discharge_group == "Palliative/Deceased")
-
+## Break down weekly predictions into DAILY PREDICTIONS PER DISCHARGE GROUP + PER RESOURCE POOL
 disch_grps_per_weekday <- patient.discharges %>%
-  group_by(Discharge.weekdays, discharge_group) %>%
-  summarize(weekday_count = n()) %>%
-  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
-  arrange(weekday.ordered)
+                          group_by(Discharge.weekdays, discharge_group) %>%
+                          summarize(weekday_count = n()) %>%
+                          mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+                          arrange(weekday.ordered)
 # ggplot(data=disch_grps_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col(aes(fill=discharge_group))
 
 # Weekdays - Normal Discharges
+norm_disch <- filter(patient.discharges, discharge_group == "Normal Discharge")
 total_norm_disch <- nrow(norm_disch)
+# weekdays
 norm_disch_per_weekday <- disch_grps_per_weekday %>%
                           filter(discharge_group == "Normal Discharge")
 # ggplot(data=norm_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
 weekday_norm_disch_proportions <- norm_disch_per_weekday %>%
                                   mutate(proportions = weekday_count / total_norm_disch)
-
 normal_dish_daily <- weekly_discharges_pred %>%
                      select(Year.of.Discharge, Week.of.Discharge, normal_discharge_adjusted) %>%
                      rename(weekly_count = normal_discharge_adjusted) %>%
                      calculate.weekly.disch.from.proportions(weekday_norm_disch_proportions) %>%
                      select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+# resource pool
+normal_resource_proportions <- norm_disch %>%
+                               group_by(Resource.Pool.name) %>%
+                               summarize(resource_count = n()) %>%
+                               mutate(proportions = resource_count / total_norm_disch)
+daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
+                                                                                  normal_resource_proportions) %>%
+                                   select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
+                                   add_column_with_value_to("discharge_group", "Normal Discharge")
 
 # Weekdays - External Transfers
+ext_disch <- filter(patient.discharges, discharge_group == "External Transfer")
 total_ext_disch <- nrow(ext_disch)
+# weekdays
 ext_disch_per_weekday <- disch_grps_per_weekday %>%
                          filter(discharge_group == "External Transfer")
 # ggplot(data=ext_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
 weekday_ext_disch_proportions <- ext_disch_per_weekday %>%
                                  mutate(proportions = weekday_count / total_ext_disch)
-
 external_dish_daily <- weekly_discharges_pred %>%
                        select(Year.of.Discharge, Week.of.Discharge, external_transfer_adjusted) %>%
                        rename(weekly_count = external_transfer_adjusted) %>%
                        calculate.weekly.disch.from.proportions(weekday_ext_disch_proportions) %>%
                        select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+# resource pool
+external_resource_proportions <- ext_disch %>%
+                                 group_by(Resource.Pool.name) %>%
+                                 summarize(resource_count = n()) %>%
+                                 mutate(proportions = resource_count / total_norm_disch)
+daily_transfer_disch_per_resource <- calculate.resource_pool.count.from.proportions(external_dish_daily, 
+                                                                                    external_resource_proportions) %>%
+                                     select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
+                                     add_column_with_value_to("discharge_group", "External Transfer")
 
 # Weekdays - Palliative+Deaths
+pall_disch <- filter(patient.discharges, discharge_group == "Palliative/Deceased")
 total_pall_disch <- nrow(pall_disch)
+# weekdays
 pall_disch_per_weekday <- disch_grps_per_weekday %>%
                           filter(discharge_group == "Palliative/Deceased")
 # ggplot(data=pall_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
@@ -544,24 +562,17 @@ palliative_dish_daily <- weekly_discharges_pred %>%
                          rename(weekly_count = palliative_deceased_adjusted) %>%
                          calculate.weekly.disch.from.proportions(weekday_pall_disch_proportions) %>%
                          select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+# resource pool
+palliative_resource_proportions <- pall_disch %>%
+                                   group_by(Resource.Pool.name) %>%
+                                   summarize(resource_count = n()) %>%
+                                   mutate(proportions = resource_count / total_norm_disch)
+daily_palliative_disch_per_resource <- calculate.resource_pool.count.from.proportions(palliative_dish_daily, 
+                                                                                      palliative_resource_proportions) %>%
+                                       select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
+                                       add_column_with_value_to("discharge_group", "Palliative/Deceased")
 
 # ADD TEST TO CHECK DAILY PRED ADD UP [here]
-
-## Break down daily discharge group predictions into resource predictions
-daily_normal_disch_per_resource <- calculate.resource_pool.count.from.proportions(normal_dish_daily, 
-                                                                                  resource_discharge_proportions) %>%
-  select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
-  add_column_with_value_to("discharge_group", "Normal Discharge")
-
-daily_transfer_disch_per_resource <- calculate.resource_pool.count.from.proportions(external_dish_daily, 
-                                                                                    resource_discharge_proportions) %>%
-  select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
-  add_column_with_value_to("discharge_group", "External Transfer")
-
-daily_palliative_disch_per_resource <- calculate.resource_pool.count.from.proportions(palliative_dish_daily, 
-                                                                                      resource_discharge_proportions) %>%
-  select(Year.of.Discharge, Week.of.Discharge, date, Resource.Pool.name, count) %>%
-  add_column_with_value_to("discharge_group", "Palliative/Deceased")
 
 ## Break down discharge type / resource pool predictions into ward
 pred_by_disch_by_resource <- daily_normal_disch_per_resource %>% 
