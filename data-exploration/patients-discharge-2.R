@@ -194,8 +194,6 @@ ggplot(discharge_ward_wkday, aes(x = weekday.ordered, y = weekday_count, fill = 
   geom_bar(stat = "identity") +
   geom_text(size = 3, position = position_stack(vjust = 0.5))
 
-# => ALL DISCHARGES WEEKDAY PROPORTIONS: *weekday_discharge_proportions*
-
 ## Weekdays - Discharge groups
 
 ## Resource pools
@@ -576,15 +574,15 @@ daily_palliative_disch_per_resource <- calculate.resource_pool.count.from.propor
 
 ## Break down discharge type / resource pool predictions into ward
 pred_by_disch_by_resource <- daily_normal_disch_per_resource %>% 
-  bind_rows(daily_transfer_disch_per_resource) %>%
-  bind_rows(daily_palliative_disch_per_resource)
+                             bind_rows(daily_transfer_disch_per_resource) %>%
+                             bind_rows(daily_palliative_disch_per_resource)
 # -> then break by resource pool
 # Date and Ward name df to merge with the df of discharge predictions per discharge group and resource pool
 ward_data <- exits_per_spe_for_ward %>%
-  group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, 
-           discharge_group, Ward.Name) %>%
-  select(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, 
-         discharge_group, Ward.Name)
+             group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, 
+             discharge_group, Ward.Name) %>%
+             select(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, 
+             discharge_group, Ward.Name)
 # Medical
 medical_per_ward <- pred_by_disch_by_resource %>%
   filter(Resource.Pool.name == "Medical") %>%
@@ -851,40 +849,85 @@ weekly_disch_resource_pred <- weekly_disch_resource_pred[,c("Year.of.Discharge",
                                                             "palliative_care_adjusted")]
 
 ## Break down weekly resource pools predictions into DAILY PREDICTIONS PER RESOURCE POOL
+# Medical
+med_wk_disch <-  patient.discharges %>%
+  filter(Resource.Pool.name == "Medical") %>%
+group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+weekday_medical_proportions <- mutate(med_wk_disch, proportions = weekday_count / nrow(med_wk_disch))
+
 medical_daily <- weekly_disch_resource_pred %>%
                  select(Year.of.Discharge, Week.of.Discharge, medical_adjusted) %>%
                  rename(weekly_count = medical_adjusted) %>%
-                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 calculate.weekly.disch.from.proportions(weekday_medical_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+# Surgical
+surg_wk_disch <- patient.discharges %>%
+  filter(Resource.Pool.name == "Surgical") %>%
+group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered) %>%
+weekday_surgical_proportions <- mutate(surg_wk_disch, proportions = weekday_count / nrow(surg_wk_disch))
 
 surgical_daily <- weekly_disch_resource_pred %>%
                   select(Year.of.Discharge, Week.of.Discharge, surgical_adjusted) %>%
                   rename(weekly_count = surgical_adjusted) %>%
-                  calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                  calculate.weekly.disch.from.proportions(weekday_surgical_proportions) %>%
                   select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
-
+# Women and Child
+wac_wk_disch <- patient.discharges %>%
+  filter(Resource.Pool.name == "Women and Child") %>%
+group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+weekday_wac_proportions <- mutate(wac_wk_disch, proportions = weekday_count / nrow(wac_wk_disch))
 wac_daily <- weekly_disch_resource_pred %>%
              select(Year.of.Discharge, Week.of.Discharge, women_and_child_adjusted) %>%
              rename(weekly_count = women_and_child_adjusted) %>%
-             calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+             calculate.weekly.disch.from.proportions(weekday_wac_proportions) %>%
              select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
-
+# Elderly Care
+elder_wk_disch <- patient.discharges %>%
+  filter(Resource.Pool.name == "Elderly Care") %>%
+group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+weekday_elderly_proportions <- mutate(elder_wk_disch, proportions = weekday_count / nrow(elder_wk_disch))
 elderly_daily <- weekly_disch_resource_pred %>%
                  select(Year.of.Discharge, Week.of.Discharge, elderly_care_adjusted) %>%
                  rename(weekly_count = elderly_care_adjusted) %>%
-                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 calculate.weekly.disch.from.proportions(weekday_elderly_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
-
+# Unscheduled Care
+unsched_wk_disch <- patient.discharges %>%
+  filter(Resource.Pool.name == "Unscheduled Care") %>%
+group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+weekday_unsched_proportions <- mutate(unsched_wk_disch, proportions = weekday_count / nrow(unsched_wk_disch))
 unsched_daily <- weekly_disch_resource_pred %>%
                  select(Year.of.Discharge, Week.of.Discharge, unscheduled_care_adjusted) %>%
                  rename(weekly_count = unscheduled_care_adjusted) %>%
-                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 calculate.weekly.disch.from.proportions(weekday_unsched_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
-
+# Palliative Care
+palliat_wk_disch <- patient.discharges %>%
+  filter(Resource.Pool.name == "Palliative Care") %>%
+group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+weekday_palliat_proportions <- mutate(palliat_wk_disch, proportions = weekday_count / nrow(palliat_wk_disch))
 palliat_daily <- weekly_disch_resource_pred %>%
                  select(Year.of.Discharge, Week.of.Discharge, palliative_care_adjusted) %>%
                  rename(weekly_count = palliative_care_adjusted) %>%
-                 calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
+                 calculate.weekly.disch.from.proportions(weekday_palliat_proportions) %>%
                  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
 
 ## ADD A TEST TO CHECK TOTALS [here]
