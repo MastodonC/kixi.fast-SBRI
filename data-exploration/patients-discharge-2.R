@@ -84,6 +84,9 @@ calculate.ward.count.from.proportions <- function(data_per_resource, proportions
     mutate(ward_count = count * ward_proportion)
 }
 
+prediction.length <- 20
+weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+
 ### Data
 patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("","NA")) %>%
   mutate(
@@ -108,18 +111,18 @@ patients_exit_hospital <- patient.data %>%
                           arrange(Ward.Episode.Number) %>%
                           filter(row_number()==n() & is.na(Date.of.Discharge)==0)
 
-# For the exit types I don't expect internal transfers, but still there are some
-exit_types <- unique(patients_exit_hospital$Method.of.Discharge)
-
-exits_transfers <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Nurse Internal Disc",
-                                                                             "Internal Discharge"))
-
-# Does `Method.of.Discharge` generally match `Destination.Discharge.Description`?
-disch_method_and_destination <- patients_exit_hospital[,c("H.C.Encrypted", "Method.of.Discharge", 
-                                                          "Destination.Discharge.Description",
-                                                          "DateTime.of.Admission", "Date.of.Discharge.with.Time")]
-# 14 different types of destinations after discharge
-disch_destinations <- unique(disch_method_and_destination$Destination.Discharge.Description)
+# # For the exit types I don't expect internal transfers, but still there are some
+# exit_types <- unique(patients_exit_hospital$Method.of.Discharge)
+# 
+# exits_transfers <- filter(patients_exit_hospital, Method.of.Discharge %in% c("Nurse Internal Disc",
+#                                                                              "Internal Discharge"))
+# 
+# # Does `Method.of.Discharge` generally match `Destination.Discharge.Description`?
+# disch_method_and_destination <- patients_exit_hospital[,c("H.C.Encrypted", "Method.of.Discharge", 
+#                                                           "Destination.Discharge.Description",
+#                                                           "DateTime.of.Admission", "Date.of.Discharge.with.Time")]
+# # 14 different types of destinations after discharge
+# disch_destinations <- unique(disch_method_and_destination$Destination.Discharge.Description)
 
 # Add a discharge group column
 patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Method.of.Discharge %in% c("Died-Post Mortem", "Died-No Post Mortem", 
@@ -149,25 +152,31 @@ patients_exit_hospital$discharge_group <- case_when(patients_exit_hospital$Metho
 )
 
 # what records have `discharge_group`==NA
-disch_na <- filter(patients_exit_hospital, is.na(discharge_group)) 
+# disch_na <- filter(patients_exit_hospital, is.na(discharge_group)) 
 # just 1 record I can't classify -> let's drop it:
 patients_exit_hospital <- filter(patients_exit_hospital, !is.na(discharge_group)) 
 
-# => ALL DISCHARGES: *patients_exit_hospital*
+# Add in specialities data
+specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactors = F, 
+                               na.strings=c("","NA"))
+
+# Patient data + Specialty data -> patient.discharges
+patient.discharges <- merge(patients_exit_hospital, specialities_match, 
+                              by.x="Specialty.on.Exit.of.Ward", by.y="PAS.name")
+
 # => DISCHARGES TYPES: *norm_disch*, *ext_disch*, *pall_disch*
-norm_disch <- filter(patients_exit_hospital, discharge_group == "Normal Discharge")
-ext_disch <- filter(patients_exit_hospital, discharge_group == "External Transfer")
-pall_disch <- filter(patients_exit_hospital, discharge_group == "Palliative/Deceased")
+norm_disch <- filter(patient.discharges, discharge_group == "Normal Discharge")
+ext_disch <- filter(patient.discharges, discharge_group == "External Transfer")
+pall_disch <- filter(patient.discharges, discharge_group == "Palliative/Deceased")
 
 ### Discharges per weekday
 ## Weekdays - Total discharges
-total_discharges <- nrow(patients_exit_hospital)
+total_discharges <- nrow(patient.discharges)
 
-weekday.list <- c("Sunday", "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
-patients_exit_hospital$Discharge.weekdays <- weekdays(patients_exit_hospital$Date.of.Discharge, 
+patient.discharges$Discharge.weekdays <- weekdays(patient.discharges$Date.of.Discharge, 
                                                       abbreviate = FALSE)
 
-discharge_per_weekday <- patients_exit_hospital %>%
+discharge_per_weekday <- patient.discharges %>%
                          group_by(Discharge.weekdays) %>%
                          summarize(weekday_count = n()) %>%
                          mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
@@ -179,7 +188,7 @@ weekday_discharge_proportions <- discharge_per_weekday %>%
                                  mutate(proportions = weekday_count / total_discharges)
 
 # All discharges per ward per weekday
-discharge_ward_wkday <- patients_exit_hospital %>%
+discharge_ward_wkday <- patient.discharges %>%
                         group_by(Discharge.weekdays, Ward.Name) %>%
                         summarize(weekday_count = n()) %>%
                         mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
@@ -192,7 +201,7 @@ ggplot(discharge_ward_wkday, aes(x = weekday.ordered, y = weekday_count, fill = 
 # => ALL DISCHARGES WEEKDAY PROPORTIONS: *weekday_discharge_proportions*
 
 ## Weekdays - Discharge groups
-disch_grps_per_weekday <- patients_exit_hospital %>%
+disch_grps_per_weekday <- patient.discharges %>%
                           group_by(Discharge.weekdays, discharge_group) %>%
                           summarize(weekday_count = n()) %>%
                           mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
@@ -222,16 +231,11 @@ weekday_pall_disch_proportions <-pall_disch_per_weekday %>%
                                  mutate(proportions = weekday_count / total_pall_disch)
 
 ## Resource pools
-# Specialities data
-specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactors = F, 
-                               na.strings=c("","NA"))
 
-exits_per_speciality <- merge(patients_exit_hospital, specialities_match, 
-                              by.x="Specialty.on.Exit.of.Ward", by.y="PAS.name")
 
-# => DISCHARGE DATA WITH SPECIALITIES: *exits_per_speciality*
+# => DISCHARGE DATA WITH SPECIALITIES: *patient.discharges*
 
-exit_spe_per_weekday <- exits_per_speciality %>%
+exit_spe_per_weekday <- patient.discharges %>%
                         group_by(Discharge.weekdays, Resource.Pool.name) %>%
                         summarize(weekday_count = n()) %>%
                         mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
@@ -242,7 +246,7 @@ ggplot(exit_spe_per_weekday, aes(x = weekday.ordered, y = weekday_count, fill = 
   geom_text(size = 3, position = position_stack(vjust = 0.5))
 
 # Discharges per resource/ward
-exits_per_spe_for_ward <- filter(exits_per_speciality, !Ward.Name %in% ward.ignore)
+exits_per_spe_for_ward <- filter(patient.discharges, !Ward.Name %in% ward.ignore)
 # Medical
 dish_resource_medical <- filter(exits_per_spe_for_ward, Resource.Pool.name == "Medical")
 disch_medical_proportions <- dish_resource_medical %>%
@@ -287,23 +291,23 @@ disch_palliative_proportions <- dish_resource_palliative %>%
                                 select(Ward.Name, ward_proportion)
 # Proportions of resource pools:
 # => ALL DISCHARGES RESOURCE POOLS PROPORTIONS: *resource_discharge_proportions*
-resource_discharge_proportions <- exits_per_speciality %>%
+resource_discharge_proportions <- patient.discharges %>%
                                   group_by(Resource.Pool.name) %>%
                                   summarize(resource_count = n()) %>%
-                                  mutate(proportions = resource_count / nrow(exits_per_speciality))
+                                  mutate(proportions = resource_count / nrow(patient.discharges))
 
 ggplot(data=resource_discharge_proportions, aes(x=Resource.Pool.name, y=resource_count)) + geom_col()
 
 ### Data Exploration + Arima Model
-prediction.length <- 20
+
 ## Yearly
-patients_yearly_exit <- group_by(patients_exit_hospital, Year.of.Discharge, discharge_group) %>%
+patients_yearly_exit <- group_by(patient.discharges, Year.of.Discharge, discharge_group) %>%
                                  summarise(count = n())
 
 ggplot(data=patients_yearly_exit, aes(x=Year.of.Discharge, y=count)) + geom_col(aes(fill=discharge_group))
 
 ## Monthly
-patients_monthly_exit <- patients_exit_hospital %>%
+patients_monthly_exit <- patient.discharges %>%
                          group_by(Year.of.Discharge, Month.of.Discharge, discharge_group) %>%
                          arrange(Year.of.Discharge, Month.of.Discharge) %>%
                          summarise(count = n())
@@ -337,7 +341,7 @@ plot.ts(diff(monthly_palliative$count))
 
 ## Weekly
 # All discharge types
-weekly_exits <- patients_exit_hospital %>%
+weekly_exits <- patient.discharges %>%
                 group_by(Year.of.Discharge, Week.of.Discharge) %>%
                 arrange(Year.of.Discharge, Week.of.Discharge) %>%
                 summarise(weekly_count = n())
@@ -374,7 +378,7 @@ disch_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,prediction.l
                        Year.of.Discharge = as.character(Year.of.Discharge)) %>%
                 bind_cols(weekly_pred_with_ci)
 # Looking at discharge groups
-patients_weekly_exit <- patients_exit_hospital %>%
+patients_weekly_exit <- patient.discharges %>%
                         group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
                         arrange(Year.of.Discharge, Week.of.Discharge) %>%
                         summarise(weekly_count = n())
@@ -477,7 +481,7 @@ disch_palliative_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,p
                            bind_cols(weekly_palliative_pred_with_ci)
 
 ## Weekly predictions per resource pool
-patients_weekly_resources <- exits_per_speciality %>%
+patients_weekly_resources <- patient.discharges %>%
                              group_by(Year.of.Discharge, Week.of.Discharge, Resource.Pool.name) %>%
                              arrange(Year.of.Discharge, Week.of.Discharge) %>%
                              summarise(count = n())
@@ -689,7 +693,7 @@ weekly_disch_resource_pred <- weekly_disch_resource_pred[,c("Year.of.Discharge",
                                                             "palliative_care_adjusted")]
 
 ## Join predictions with confidence intervals
-hist_weekly_discharges <- patients_exit_hospital %>%
+hist_weekly_discharges <- patient.discharges %>%
                           group_by(Year.of.Discharge, Week.of.Discharge, discharge_group) %>%
                           arrange(Year.of.Discharge, Week.of.Discharge) %>%
                           summarise(weekly_count = n())
@@ -833,7 +837,7 @@ errors_resource_ward <- filter(compare_resource_ward_counts,
 write.csv(discharges_per_resource_per_ward, file = "discharge_predictions_per_resource_per_ward.csv", row.names = F)
 
 # Had historical data to those predictions
-hist_disch_per_resource_per_ward <- exits_per_speciality %>%
+hist_disch_per_resource_per_ward <- patient.discharges %>%
                                     group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, 
                                              Resource.Pool.name, Ward.Name) %>%
                                     arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
@@ -930,7 +934,7 @@ errors <- filter(compare_resource_counts, abs(compare_resource_counts$resource_c
 # => errors has 0 records so the results add up :)
 
 # Had historical data to those predictions
-hist_disch_per_ward <- exits_per_speciality %>%
+hist_disch_per_ward <- patient.discharges %>%
                        group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, 
                                 discharge_group, Resource.Pool.name, Ward.Name) %>%
                        arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
@@ -943,7 +947,7 @@ write.csv(hist_and_pred_per_ward, file = "discharge_historic_predictions_per_res
 
 
 ## Merge all predictions together and with historical data
-historical_discharges <- exits_per_speciality %>%
+historical_discharges <- patient.discharges %>%
                          group_by(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge, Resource.Pool.name, discharge_group) %>%
                          arrange(Year.of.Discharge, Week.of.Discharge, Date.of.Discharge) %>%
                          summarise(count = n()) %>%
@@ -964,7 +968,7 @@ ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (
                  "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
                  "B5 Closed From 03/10/16")
 
-discharges_per_ward <- patients_exit_hospital %>%
+discharges_per_ward <- patient.discharges %>%
                        filter(!Ward.Name %in% ward.ignore) %>%
                        group_by(Ward.Name) %>%
                        summarise(count = n())
