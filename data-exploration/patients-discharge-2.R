@@ -164,10 +164,6 @@ specialities_match <- read.csv(resource_pool.specialties.2.path, stringsAsFactor
 patient.discharges <- merge(patients_exit_hospital, specialities_match, 
                               by.x="Specialty.on.Exit.of.Ward", by.y="PAS.name")
 
-# => DISCHARGES TYPES: *norm_disch*, *ext_disch*, *pall_disch*
-norm_disch <- filter(patient.discharges, discharge_group == "Normal Discharge")
-ext_disch <- filter(patient.discharges, discharge_group == "External Transfer")
-pall_disch <- filter(patient.discharges, discharge_group == "Palliative/Deceased")
 
 ### Discharges per weekday
 ## Weekdays - Total discharges
@@ -201,34 +197,6 @@ ggplot(discharge_ward_wkday, aes(x = weekday.ordered, y = weekday_count, fill = 
 # => ALL DISCHARGES WEEKDAY PROPORTIONS: *weekday_discharge_proportions*
 
 ## Weekdays - Discharge groups
-disch_grps_per_weekday <- patient.discharges %>%
-                          group_by(Discharge.weekdays, discharge_group) %>%
-                          summarize(weekday_count = n()) %>%
-                          mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
-                          arrange(weekday.ordered)
-ggplot(data=disch_grps_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col(aes(fill=discharge_group))
-
-# Weekdays - Normal Discharges
-total_norm_disch <- nrow(norm_disch)
-norm_disch_per_weekday <- disch_grps_per_weekday %>%
-                          filter(discharge_group == "Normal Discharge")
-ggplot(data=norm_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
-weekday_norm_disch_proportions <- norm_disch_per_weekday %>%
-                                  mutate(proportions = weekday_count / total_norm_disch)
-# Weekdays - External Transfers
-total_ext_disch <- nrow(ext_disch)
-ext_disch_per_weekday <- disch_grps_per_weekday %>%
-                          filter(discharge_group == "External Transfer")
-ggplot(data=ext_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
-weekday_ext_disch_proportions <- ext_disch_per_weekday %>%
-                                 mutate(proportions = weekday_count / total_ext_disch)
-# Weekdays - Palliative+Deaths
-total_pall_disch <- nrow(pall_disch)
-pall_disch_per_weekday <- disch_grps_per_weekday %>%
-                          filter(discharge_group == "Palliative/Deceased")
-ggplot(data=pall_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
-weekday_pall_disch_proportions <-pall_disch_per_weekday %>%
-                                 mutate(proportions = weekday_count / total_pall_disch)
 
 ## Resource pools
 # exit_spe_per_weekday <- patient.discharges %>%
@@ -524,23 +492,58 @@ weekly_discharges_pred_with_ci <- hist_weekly_discharges %>%
 write.csv(weekly_discharges_pred_with_ci, file = "weekly_discharges_historic_and_predictions.csv", row.names = F)
 
 ## Break down weekly predictions into DAILY PREDICTIONS PER DISCHARGE GROUP
+norm_disch <- filter(patient.discharges, discharge_group == "Normal Discharge")
+ext_disch <- filter(patient.discharges, discharge_group == "External Transfer")
+pall_disch <- filter(patient.discharges, discharge_group == "Palliative/Deceased")
+
+disch_grps_per_weekday <- patient.discharges %>%
+  group_by(Discharge.weekdays, discharge_group) %>%
+  summarize(weekday_count = n()) %>%
+  mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+  arrange(weekday.ordered)
+# ggplot(data=disch_grps_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col(aes(fill=discharge_group))
+
+# Weekdays - Normal Discharges
+total_norm_disch <- nrow(norm_disch)
+norm_disch_per_weekday <- disch_grps_per_weekday %>%
+                          filter(discharge_group == "Normal Discharge")
+# ggplot(data=norm_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
+weekday_norm_disch_proportions <- norm_disch_per_weekday %>%
+                                  mutate(proportions = weekday_count / total_norm_disch)
+
 normal_dish_daily <- weekly_discharges_pred %>%
-  select(Year.of.Discharge, Week.of.Discharge, normal_discharge_adjusted) %>%
-  rename(weekly_count = normal_discharge_adjusted) %>%
-  calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
-  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+                     select(Year.of.Discharge, Week.of.Discharge, normal_discharge_adjusted) %>%
+                     rename(weekly_count = normal_discharge_adjusted) %>%
+                     calculate.weekly.disch.from.proportions(weekday_norm_disch_proportions) %>%
+                     select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+# Weekdays - External Transfers
+total_ext_disch <- nrow(ext_disch)
+ext_disch_per_weekday <- disch_grps_per_weekday %>%
+                         filter(discharge_group == "External Transfer")
+# ggplot(data=ext_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
+weekday_ext_disch_proportions <- ext_disch_per_weekday %>%
+                                 mutate(proportions = weekday_count / total_ext_disch)
 
 external_dish_daily <- weekly_discharges_pred %>%
-  select(Year.of.Discharge, Week.of.Discharge, external_transfer_adjusted) %>%
-  rename(weekly_count = external_transfer_adjusted) %>%
-  calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
-  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+                       select(Year.of.Discharge, Week.of.Discharge, external_transfer_adjusted) %>%
+                       rename(weekly_count = external_transfer_adjusted) %>%
+                       calculate.weekly.disch.from.proportions(weekday_ext_disch_proportions) %>%
+                       select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+
+# Weekdays - Palliative+Deaths
+total_pall_disch <- nrow(pall_disch)
+pall_disch_per_weekday <- disch_grps_per_weekday %>%
+                          filter(discharge_group == "Palliative/Deceased")
+# ggplot(data=pall_disch_per_weekday, aes(x=weekday.ordered, y=weekday_count)) + geom_col()
+weekday_pall_disch_proportions <-pall_disch_per_weekday %>%
+                                 mutate(proportions = weekday_count / total_pall_disch)
 
 palliative_dish_daily <- weekly_discharges_pred %>%
-  select(Year.of.Discharge, Week.of.Discharge, palliative_deceased_adjusted) %>%
-  rename(weekly_count = palliative_deceased_adjusted) %>%
-  calculate.weekly.disch.from.proportions(weekday_discharge_proportions) %>%
-  select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
+                         select(Year.of.Discharge, Week.of.Discharge, palliative_deceased_adjusted) %>%
+                         rename(weekly_count = palliative_deceased_adjusted) %>%
+                         calculate.weekly.disch.from.proportions(weekday_pall_disch_proportions) %>%
+                         select(Year.of.Discharge, Week.of.Discharge, date, daily_count)
 
 # ADD TEST TO CHECK DAILY PRED ADD UP [here]
 
