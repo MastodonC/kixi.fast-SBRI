@@ -522,7 +522,7 @@ calculate_breakdown_per_day_and_resource_pool <- function(ward.column, ward.name
   total.count <- sum(filter(ward.counts, Ward.Name == ward.name)$ward.count)
   weekday.proportions <- filter(ward.counts, Ward.Name == ward.name) %>%
     group_by(weekday) %>%
-    summarize(proportion = sum(ward.count)/a1.medical.total.count)
+    summarize(proportion = sum(ward.count)/total.count)
 
   # resource pool proportions
   total.number <- nrow(filter(patient.data.with.resource_pool, Ward.Name == ward.name))
@@ -543,7 +543,7 @@ mapped.results <- mapply(calculate_breakdown_per_day_and_resource_pool,
                          MoreArgs=list(ward.counts, patient.data.with.resource_pool), SIMPLIFY=FALSE,
                          c("a1.medical","a2.paediatric","a3.medical","a4.medical","ae.dept","b3.ward","c1.gynae","c2.maternity", 
                            "intensive.care","b.cardiac","assessment.1","b4.general","b5b.eau","c2.cotted","c3.gastro", 
-                           "c4.elective","c5.surgery","c6.gen","c7","discharge.lounge","elderly.acute","elderly.acute","macmillan","obs"),
+                           "c4.elective","c5.surgery","c6.gen","c7","discharge.lounge","elderly.acute","b2","macmillan","obs"),
                          c("A1 Stroke/Medical Ward", "A2 Paediatric Ward", "A3 Medical Ward", "Antrim A4 Medical", 
                            "Antrim A&E Dept.", "Antrim B3 Ward", "Antrim C1 Gynae", "Antrim C2 Maternity Unit", 
                            "Antrim (C)Intensive Care", "Antrim Level B Cardiac Unit", "Assessment Medical Unit 1", 
@@ -559,3 +559,14 @@ final.data <- df <- data.frame(date=as.Date(character()),
 for (i in 1:24) {
   final.data <- bind_rows(final.data, mapped.results[i])
 }
+
+# checks
+check.final.data <- mutate(final.data,
+                           Year = format(date, "%Y"),
+                           Week = format(date, "%U")) %>%
+  group_by(Year, Week) %>%
+  summarize(weekly.count = sum(count)) %>%
+  full_join(total.pred.data)
+
+
+
