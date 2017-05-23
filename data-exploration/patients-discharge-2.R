@@ -105,6 +105,11 @@ patient.data <- read.csv(patient.data.path, stringsAsFactors = F, na.strings=c("
                                  labels=c('0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80-90', 'Over 90')))
   )
 
+ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
+                 "Antrim Outpatients Department", "A3h Medical", "Trolley Waits In Day Procedure", "Recovery Area Antrim", "Renal Unit Antrim Hospital", "Operating Theatres", "Closed Do Not Use", "Cardiac Procedure Room Level B", "Day Surgery Unit",
+                 "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
+                 "B5 Closed From 03/10/16")
+
 # Last discharge for each stay = patient exit
 patients_exit_hospital <- patient.data %>%
                           group_by(H.C.Encrypted, DateTime.of.Admission) %>%
@@ -169,8 +174,8 @@ patient.discharges <- merge(patients_exit_hospital, specialities_match,
 ## Weekdays - Total discharges
 # total_discharges <- nrow(patient.discharges)
 # 
-# patient.discharges$Discharge.weekdays <- weekdays(patient.discharges$Date.of.Discharge, 
-#                                                       abbreviate = FALSE)
+patient.discharges$Discharge.weekdays <- weekdays(patient.discharges$Date.of.Discharge,
+                                                      abbreviate = FALSE)
 # 
 # discharge_per_weekday <- patient.discharges %>%
 #                          group_by(Discharge.weekdays) %>%
@@ -184,15 +189,15 @@ patient.discharges <- merge(patients_exit_hospital, specialities_match,
 #                                  mutate(proportions = weekday_count / total_discharges)
 
 # All discharges per ward per weekday
-discharge_ward_wkday <- patient.discharges %>%
-                        group_by(Discharge.weekdays, Ward.Name) %>%
-                        summarize(weekday_count = n()) %>%
-                        mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
-                        arrange(weekday.ordered)
-
-ggplot(discharge_ward_wkday, aes(x = weekday.ordered, y = weekday_count, fill = Ward.Name, label = weekday_count)) +
-  geom_bar(stat = "identity") +
-  geom_text(size = 3, position = position_stack(vjust = 0.5))
+# discharge_ward_wkday <- patient.discharges %>%
+#                         group_by(Discharge.weekdays, Ward.Name) %>%
+#                         summarize(weekday_count = n()) %>%
+#                         mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
+#                         arrange(weekday.ordered)
+# 
+# ggplot(discharge_ward_wkday, aes(x = weekday.ordered, y = weekday_count, fill = Ward.Name, label = weekday_count)) +
+#   geom_bar(stat = "identity") +
+#   geom_text(size = 3, position = position_stack(vjust = 0.5))
 
 ## Weekdays - Discharge groups
 
@@ -353,10 +358,10 @@ ggplot(data=patients_weekly_exit, aes(x=paste(Year.of.Discharge, Week.of.Dischar
 weekly_normal <- filter(patients_weekly_exit, discharge_group == "Normal Discharge")
 weekly_normal <- remove_first_and_last(weekly_normal)
 # acf
-acf(weekly_normal$count)
-plot.ts(weekly_normal$count)
-acf(diff(weekly_normal$count))
-plot.ts(diff(weekly_normal$count))
+# acf(weekly_normal$count)
+# plot.ts(weekly_normal$count)
+# acf(diff(weekly_normal$count))
+# plot.ts(diff(weekly_normal$count))
 weekly_normal <- weekly_normal[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
 # arima
 weekly.normal.model <- arima(weekly_normal$weekly_count, order = c(1,0,0))
@@ -384,10 +389,10 @@ disch_normal_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,predi
 weekly_transfer <- filter(patients_weekly_exit, discharge_group == "External Transfer")
 weekly_transfer <- remove_first_and_last(weekly_transfer)
 # acf
-acf(weekly_transfer$count)
-plot.ts(weekly_transfer$count)
-acf(diff(weekly_transfer$count))
-plot.ts(diff(weekly_transfer$count))
+# acf(weekly_transfer$count)
+# plot.ts(weekly_transfer$count)
+# acf(diff(weekly_transfer$count))
+# plot.ts(diff(weekly_transfer$count))
 weekly_transfer <- weekly_transfer[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
 # arima
 weekly.transfer.model <- arima(weekly_transfer$weekly_count, order = c(1,0,0))
@@ -415,10 +420,10 @@ disch_transfer_pred_ci <-mutate(data.frame(Year.of.Discharge = rep(last.year,pre
 weekly_palliative <- filter(patients_weekly_exit, discharge_group == "Palliative/Deceased")
 weekly_palliative <- remove_first_and_last(weekly_palliative)
 # acf
-acf(weekly_palliative$count)
-plot.ts(weekly_palliative$count)
-acf(diff(weekly_palliative$count))
-plot.ts(diff(weekly_palliative$count))
+# acf(weekly_palliative$count)
+# plot.ts(weekly_palliative$count)
+# acf(diff(weekly_palliative$count))
+# plot.ts(diff(weekly_palliative$count))
 weekly_palliative <- weekly_palliative[,c("Year.of.Discharge", "Week.of.Discharge", "weekly_count")]
 # arima
 weekly.palliative.model <- arima(weekly_palliative$weekly_count, order = c(1,0,0))
@@ -866,10 +871,10 @@ medical_daily <- weekly_disch_resource_pred %>%
 # Surgical
 surg_wk_disch <- patient.discharges %>%
   filter(Resource.Pool.name == "Surgical") %>%
-group_by(Discharge.weekdays, Resource.Pool.name) %>%
+  group_by(Discharge.weekdays, Resource.Pool.name) %>%
   summarize(weekday_count = n()) %>%
   mutate(weekday.ordered = factor(Discharge.weekdays, levels = weekday.list)) %>%
-  arrange(weekday.ordered) %>%
+  arrange(weekday.ordered)
 weekday_surgical_proportions <- mutate(surg_wk_disch, proportions = weekday_count / nrow(surg_wk_disch))
 
 surgical_daily <- weekly_disch_resource_pred %>%
@@ -932,7 +937,6 @@ palliat_daily <- weekly_disch_resource_pred %>%
 
 ## Test values add up
 all_daily_resource_disch <- rename(medical_daily, medical = daily_count) %>%
-  full_join(by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
   full_join(rename(surgical_daily, surgical = daily_count), 
             by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
   full_join(rename(wac_daily, women_and_child = daily_count), 
@@ -944,7 +948,8 @@ all_daily_resource_disch <- rename(medical_daily, medical = daily_count) %>%
   full_join(rename(palliat_daily, palliative_care = daily_count), 
             by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
   group_by(Year.of.Discharge, Week.of.Discharge) %>%
-  summarize(weekly_count_check=medical + surgical + women_and_child + elderly_care + unscheduled_care + palliative_care) %>%
+  summarize(weekly_count_check=sum(medical) + sum(surgical) + sum(women_and_child) +
+              sum(elderly_care) + sum(unscheduled_care) + sum(palliative_care))  %>%
   full_join(weekly_disch_resource_pred, by=c("Year.of.Discharge", "Week.of.Discharge")) %>%
   mutate(sum_count_check= medical_adjusted + surgical_adjusted + women_and_child_adjusted + elderly_care_adjusted + 
            unscheduled_care_adjusted + palliative_care_adjusted)
@@ -1040,10 +1045,10 @@ write.csv(hist_and_pred_per_resource_per_ward, file = "discharge_historic_predic
 
 
 # ## Looking at Discharges and wards
-# ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
-#                  "Antrim Outpatients Department", "A3h Medical", "Trolley Waits In Day Procedure", "Recovery Area Antrim", "Renal Unit Antrim Hospital", "Operating Theatres", "Closed Do Not Use", "Cardiac Procedure Room Level B", "Day Surgery Unit",
-#                  "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
-#                  "B5 Closed From 03/10/16")
+ward.ignore <- c("Antrim Dpu/Endoscopy Unit", "Antrim Induction Unit", "Antrim (C) Neonatal Unit", "Fetal Maternal Assessment Unit", "A4h Haemodialysis Unit", "Antrim Childrens Ambulatory", "Antrim Special Care Baby Int.", "Chemotherapy Unit Laurel House",
+                 "Antrim Outpatients Department", "A3h Medical", "Trolley Waits In Day Procedure", "Recovery Area Antrim", "Renal Unit Antrim Hospital", "Operating Theatres", "Closed Do Not Use", "Cardiac Procedure Room Level B", "Day Surgery Unit",
+                 "Ant Short Stay Ward Ambulatory", "Acute Assessment Unit", "Short Stay Wrd Closed05/07/13","A1a Ward Rheumatology", "A2 Assessment Unit", "A3tr Trolley Wait Holding Area", "Accident And Emergency Obs", "A&E Trolley Waits", "C3 Trolley Waits Holding Area",
+                 "B5 Closed From 03/10/16")
 # 
 # discharges_per_ward <- patient.discharges %>%
 #                        filter(!Ward.Name %in% ward.ignore) %>%
@@ -1052,3 +1057,4 @@ write.csv(hist_and_pred_per_resource_per_ward, file = "discharge_historic_predic
 # 
 # ggplot(data=discharges_per_ward, aes(x=reorder(Ward.Name,-count), y=count)) +
 #   geom_bar(stat="identity") + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
