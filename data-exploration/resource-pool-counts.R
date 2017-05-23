@@ -267,8 +267,9 @@ closed.or.not <- filter(patient.data, Ward.Name == "B5 Closed From 03/10/16") %>
 ######################
 # steps:
 # 1. predictions on a weekly level
-# 2. scale predictions so they sum to total prediction (TODO)
-# 3. split up in weekdays and resource pools (TODO)
+# 2. scale predictions so they sum to total prediction
+# 3. split up in weekdays and resource pools
+# 4. add historical data and produce csv
 
 #### 2.1 predictions on a weekly level
 
@@ -533,11 +534,9 @@ calculate_breakdown_per_day_and_resource_pool <- function(ward.column, ward.name
   calculate.daily.counts.from.proportions(prediction.data, weekday.proportions) %>%
     select(Ward.Name, date, daily.count) %>%
     calculate.resource_pool.count.from.proportions(resource_pool.proportions) %>%
-    mutate(Ward.Name.added = ward.name) %>%
+    mutate(Ward.Name = ward.name) %>%
     arrange(date)
 }
-
-calculate_breakdown_per_day_and_resource_pool("a1.medical", "A1 Stroke/Medical Ward", ward.counts, patient.data.with.resource_pool)
 
 mapped.results <- mapply(calculate_breakdown_per_day_and_resource_pool, 
                          MoreArgs=list(ward.counts, patient.data.with.resource_pool), SIMPLIFY=FALSE,
@@ -551,22 +550,47 @@ mapped.results <- mapply(calculate_breakdown_per_day_and_resource_pool,
                            "C3 Gastro & General Medicine", "C4 Elective Unit", "C5 Gen Surgery", "C6 Gen Surgery", "C7",
                            "Discharge Lounge Antrim", "Eldery Acute Unit", "Genm/Endo/Diab - B2", "Macmillan Unit At Antrim", "Observation Unit - Antrim"))
 # initialize empty data frame
-final.data <- df <- data.frame(date=as.Date(character()),
+final.prediction.data <- df <- data.frame(date=as.Date(character()),
                                Ward.Name=character(), 
                                Resource.Pool.name=character(), 
                                count=integer(),
                                stringsAsFactors=FALSE) 
 for (i in 1:24) {
-  final.data <- bind_rows(final.data, mapped.results[i])
+  final.prediction.data <- bind_rows(final.prediction.data, mapped.results[i])
 }
 
 # checks
-check.final.data <- mutate(final.data,
+check.final.data <- mutate(final.prediction.data,
                            Year = format(date, "%Y"),
                            Week = format(date, "%U")) %>%
   group_by(Year, Week) %>%
   summarize(weekly.count = sum(count)) %>%
   full_join(total.pred.data)
 
+# add historical data
+historical.patient.data <- filter(patient.data.with.resource_pool, !(Ward.Name %in% ward.ignore))
+historical.patient.entry.ward <- group_by(historical.patient.data, Ward.Name, Resource.Pool.name, Date.of.Ward.Entry) %>%
+  summarize(entry.count = n()) %>%
+  rename(date = Date.of.Ward.Entry)
+historical.patient.exit.ward <- filter(relevant.patient.data, is.na(Date.of.Ward.Exit) == 0) %>%
+  group_by(Ward.Name, Resource.Pool.name, Date.of.Ward.Exit) %>%
+  summarize(exit.count = n()) %>%
+  rename(date = Date.of.Ward.Exit)
+historical.patient.per.ward <- full_join(historical.patient.entry.ward, historical.patient.exit.ward) %>%
+  all_na_to_0()
+
+historical.patient.per.ward.counts <- ungroup(historical.patient.per.ward) %>%
+  arrange(Ward.Name, Resource.Pool.name, date) %>%
+  group_by(Ward.Name, Resource.Pool.name) %>%
+  mutate(cumulative.entries = cumsum(entry.count),
+         cumulative.exits = cumsum(exit.count),
+         count = cumulative.entries - cumulative.exits) %>%
+  select(Ward.Name, Resource.Pool.name, date, count)
+
+# bind historical and prediction
+options(scipen=999)
+final.data <- bind_rows(historical.patient.per.ward.counts, final.prediction.data) %>%
+  mutate(count = format(count, digits = 3))
+write.csv(final.data, file="ward.resource_pool.counts.per.date.csv", row.names=F)
 
 
